@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>打砖块</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#1a1a2e;color:#eee;font-family:"Microsoft YaHei",sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;user-select:none}
+h1{font-size:22px;margin-bottom:8px;color:#e94560}
+#info{font-size:14px;color:#888;margin-bottom:12px}
+canvas{background:#16213e;border:2px solid #0f3460;border-radius:4px;display:block}
+#msg{font-size:14px;color:#aaa;margin-top:10px;text-align:center}
+#back{position:fixed;top:15px;left:15px;color:#aaa;text-decoration:none;font-size:14px}
+#back:hover{color:#fff}
+</style>
+</head>
+<body>
+<a href="index.html" id="back">返回游戏列表</a>
+<h1>打砖块</h1>
+<div id="info">分数: <span id="score">0</span> | 生命: <span id="lives">3</span></div>
+<canvas id="canvas" width="800" height="500"></canvas>
+<div id="msg">点击开始游戏 | 鼠标控制挡板</div>
+<script>
+var c=document.getElementById('canvas'),x=c.getContext('2d'),scoreEl=document.getElementById('score'),livesEl=document.getElementById('lives'),msg=document.getElementById('msg');
+var W=c.width,H=c.height;
+var ball={x:0,y:0,r:6,dx:0,dy:0,speed:5};
+var paddle={w:100,h:12,y:H-30,x:W/2-50};
+var bricks=[],cols=10,rows=5,bw=W/cols-4,bh=20,pad=2,colors=['#e74c3c','#e67e22','#f1c40f','#2ecc71','#3498db'];
+var score=0,lives=3,running=false,animId;
+function makeBricks(){bricks=[];for(var r=0;r<rows;r++){bricks[r]=[];for(var c2=0;c2<cols;c2++)bricks[r][c2]={x:c2*(bw+pad)+pad+2,y:r*(bh+pad)+30,hp:1}}}
+function resetBall(){ball.x=paddle.x+paddle.w/2;ball.y=paddle.y-ball.r-1;ball.dx=0;ball.dy=0}
+function launch(){ball.dx=(Math.random()-0.5)*4;ball.dy=-ball.speed;running=true;msg.textContent=''}
+function draw(){
+x.clearRect(0,0,W,H);
+for(var r=0;r<rows;r++)for(var c2=0;c2<cols;c2++){if(!bricks[r][c2].hp)continue;x.fillStyle=colors[r];x.fillRect(bricks[r][c2].x,bricks[r][c2].y,bw,bh);x.fillStyle='rgba(255,255,255,0.15)';x.fillRect(bricks[r][c2].x,bricks[r][c2].y,bw,4)}
+x.fillStyle='#eee';x.fillRect(paddle.x,paddle.y,paddle.w,paddle.h);x.fillStyle='#fff';x.fillRect(paddle.x,paddle.y,paddle.w,4);
+x.beginPath();x.arc(ball.x,ball.y,ball.r,0,Math.PI*2);x.fillStyle='#e94560';x.fill();x.closePath()}
+function update(){
+if(!running){draw();return}
+ball.x+=ball.dx;ball.y+=ball.dy;
+if(ball.x-ball.r<0||ball.x+ball.r>W)ball.dx=-ball.dx;
+if(ball.y-ball.r<0)ball.dy=-ball.dy;
+if(ball.y+ball.r>paddle.y&&ball.x>paddle.x&&ball.x<paddle.x+paddle.w&&ball.dy>0){ball.dy=-ball.dy;ball.dx+=(ball.x-(paddle.x+paddle.w/2))*0.08}
+if(ball.y-ball.r>H){lives--;livesEl.textContent=lives;if(lives<=0){running=false;msg.textContent='游戏结束！点击重新开始';return}resetBall();running=false;msg.textContent='点击继续';return}
+for(var r=0;r<rows;r++)for(var c2=0;c2<cols;c2++){if(!bricks[r][c2].hp)continue;var b=bricks[r][c2];if(ball.x>b.x&&ball.x<b.x+bw&&ball.y-ball.r<b.y+bh&&ball.y+ball.r>b.y){ball.dy=-ball.dy;bricks[r][c2].hp=0;score++;scoreEl.textContent=score}}
+var left=0;for(var r=0;r<rows;r++)for(var c2=0;c2<cols;c2++)if(bricks[r][c2].hp)left++;
+if(left===0){running=false;msg.textContent='全部消除！点击开始下一关';makeBricks();resetBall();return}
+draw();animId=requestAnimationFrame(update)}
+c.addEventListener('mousemove',function(e){var r=c.getBoundingClientRect();paddle.x=e.clientX-r.left-paddle.w/2;if(paddle.x<0)paddle.x=0;if(paddle.x+paddle.w>W)paddle.x=W-paddle.w});
+c.addEventListener('click',function(){if(!running){resetBall();launch();if(!animId)update()}});
+makeBricks();resetBall();draw();
+</script>
+</body>
+</html>

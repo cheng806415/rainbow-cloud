@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>别踩白块</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#1a1a2e;color:#eee;font-family:"Microsoft YaHei",sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;user-select:none}
+h1{font-size:22px;margin-bottom:8px;color:#2c3e50}
+#info{font-size:14px;color:#888;margin-bottom:12px}
+canvas{background:#fff;border:2px solid #333;border-radius:4px;display:block}
+#msg{font-size:14px;color:#aaa;margin-top:10px;text-align:center}
+#back{position:fixed;top:15px;left:15px;color:#aaa;text-decoration:none;font-size:14px}
+#back:hover{color:#fff}
+</style>
+</head>
+<body>
+<a href="index.html" id="back">返回游戏列表</a>
+<h1>别踩白块</h1>
+<div id="info">分数: <span id="score">0</span></div>
+<canvas id="canvas" width="300" height="500"></canvas>
+<div id="msg">点击黑色方块 | 点击开始</div>
+<script>
+var c=document.getElementById('canvas'),x=c.getContext('2d'),W=c.width,H=c.height,scoreEl=document.getElementById('score'),msg=document.getElementById('msg');
+var cols=4,rows=5,cw=W/cols,ch=H/rows;
+var grid=[],score=0,running=false,speed=1.5,animId;
+function initGrid(){grid=[];for(var r=0;r<rows;r++){var row=[];var black=Math.floor(Math.random()*cols);for(var c2=0;c2<cols;c2++)row.push({y:r*ch,color:c2===black?'#2c3e50':'#fff',isBlack:c2===black,clicked:false});grid.push(row)}}
+function update(){
+if(!running){draw();return}
+for(var r=0;r<rows;r++)for(var c2=0;c2<cols;c2++)grid[r][c2].y+=speed;
+for(var r=0;r<rows;r++){for(var c2=0;c2<cols;c2++){if(grid[r][c2].isBlack&&!grid[r][c2].clicked&&grid[r][c2].y>H){running=false;msg.textContent='游戏结束！得分: '+score;return}}}
+if(grid[0][0].y>ch){grid.shift();var row=[];var black=Math.floor(Math.random()*cols);for(var c2=0;c2<cols;c2++)row.push({y:(rows-1)*ch,color:c2===black?'#2c3e50':'#fff',isBlack:c2===black,clicked:false});grid.push(row);speed+=0.05}
+draw();animId=requestAnimationFrame(update)}
+function draw(){x.clearRect(0,0,W,H);for(var r=0;r<rows;r++)for(var c2=0;c2<cols;c2++){var cell=grid[r][c2];x.fillStyle=cell.clicked?'#ddd':cell.color;x.fillRect(c2*cw+1,cell.y,cw-2,ch-1);if(cell.isBlack&&!cell.clicked){x.fillStyle='rgba(255,255,255,0.1)';x.fillRect(c2*cw+1,cell.y,cw-2,ch-1)}}}
+c.addEventListener('click',function(e){if(!running){score=0;speed=1.5;initGrid();running=true;msg.textContent='';update();return}var rect=c.getBoundingClientRect();var mx=e.clientX-rect.left,my=e.clientY-rect.top;var col=Math.floor(mx/cw);for(var r=0;r<rows;r++){var cell=grid[r][col];if(cell&&cell.isBlack&&!cell.clicked&&my>=cell.y&&my<cell.y+ch){cell.clicked=true;score++;scoreEl.textContent=score;speed+=0.02;break}}});
+initGrid();draw();
+</script>
+</body>
+</html>

@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>乒乓球</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#1a1a2e;color:#eee;font-family:"Microsoft YaHei",sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;user-select:none}
+h1{font-size:22px;margin-bottom:8px;color:#1abc9c}
+#info{font-size:14px;color:#888;margin-bottom:12px}
+canvas{background:#16213e;border:2px solid #0f3460;border-radius:4px;display:block}
+#msg{font-size:14px;color:#aaa;margin-top:10px;text-align:center}
+#back{position:fixed;top:15px;left:15px;color:#aaa;text-decoration:none;font-size:14px}
+#back:hover{color:#fff}
+</style>
+</head>
+<body>
+<a href="index.html" id="back">返回游戏列表</a>
+<h1>乒乓球</h1>
+<div id="info">你: <span id="ps">0</span> | 电脑: <span id="cs">0</span></div>
+<canvas id="canvas" width="800" height="500"></canvas>
+<div id="msg">鼠标控制挡板 | 点击开始</div>
+<script>
+var c=document.getElementById('canvas'),x=c.getContext('2d'),W=c.width,H=c.height;
+var pw=12,ph=80,ballR=7;
+var p={x:10,y:H/2-ph/2,score:0},ai={x:W-22,y:H/2-ph/2,score:0};
+var ball={x:W/2,y:H/2,dx:0,dy:0,spd:5};
+var running=false,animId;
+function resetBall(){ball.x=W/2;ball.y=H/2;ball.dx=0;ball.dy=0;running=false;document.getElementById('msg').textContent='点击开始'}
+function launch(){var a=(Math.random()-0.5)*1.2;ball.dx=Math.cos(a)*ball.spd*(Math.random()>0.5?1:-1);ball.dy=Math.sin(a)*ball.spd;running=true;document.getElementById('msg').textContent=''}
+function update(){
+if(!running){draw();animId=requestAnimationFrame(update);return}
+ball.x+=ball.dx;ball.y+=ball.dy;
+if(ball.y-ballR<0||ball.y+ballR>H)ball.dy=-ball.dy;
+if(ball.x-ballR<p.x+pw&&ball.y>p.y&&ball.y<p.y+ph){ball.dx=Math.abs(ball.dx)*1.05;ball.dy+=(ball.y-(p.y+ph/2))*0.1}
+if(ball.x+ballR>ai.x&&ball.y>ai.y&&ball.y<ai.y+ph){ball.dx=-Math.abs(ball.dx)*1.05;ball.dy+=(ball.y-(ai.y+ph/2))*0.1}
+ai.y+=(ball.y-ai.y-ph/2)*0.06;
+if(ai.y<0)ai.y=0;if(ai.y+ph>H)ai.y=H-ph;
+if(ball.x<0){ai.score++;document.getElementById('cs').textContent=ai.score;resetBall()}
+if(ball.x>W){p.score++;document.getElementById('ps').textContent=p.score;resetBall()}
+if(p.score>=5||ai.score>=5){running=false;document.getElementById('msg').textContent=p.score>=5?'你赢了！点击重新开始':'你输了！点击重新开始';p.score=0;ai.score=0;document.getElementById('ps').textContent=0;document.getElementById('cs').textContent=0;return}
+draw();animId=requestAnimationFrame(update)}
+function draw(){x.clearRect(0,0,W,H);x.setLineDash([5,10]);x.beginPath();x.moveTo(W/2,0);x.lineTo(W/2,H);x.strokeStyle='#0f3460';x.stroke();x.setLineDash([]);x.fillStyle='#eee';x.fillRect(p.x,p.y,pw,ph);x.fillRect(ai.x,ai.y,pw,ph);x.beginPath();x.arc(ball.x,ball.y,ballR,0,Math.PI*2);x.fillStyle='#1abc9c';x.fill();x.closePath()}
+c.addEventListener('mousemove',function(e){var r=c.getBoundingClientRect();p.y=e.clientY-r.top-ph/2;if(p.y<0)p.y=0;if(p.y+ph>H)p.y=H-ph});
+c.addEventListener('click',function(){if(!running)launch()});
+resetBall();update();
+</script>
+</body>
+</html>

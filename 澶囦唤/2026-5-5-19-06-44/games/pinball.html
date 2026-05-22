@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>弹球</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#1a1a2e;color:#eee;font-family:"Microsoft YaHei",sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;user-select:none}
+h1{font-size:22px;margin-bottom:8px;color:#e74c3c}
+#info{font-size:14px;color:#888;margin-bottom:12px}
+canvas{background:#16213e;border:2px solid #0f3460;border-radius:4px;display:block}
+#msg{font-size:14px;color:#aaa;margin-top:10px;text-align:center}
+#back{position:fixed;top:15px;left:15px;color:#aaa;text-decoration:none;font-size:14px}
+#back:hover{color:#fff}
+</style>
+</head>
+<body>
+<a href="index.html" id="back">返回游戏列表</a>
+<h1>弹球</h1>
+<div id="info">分数: <span id="score">0</span> | 3条命</div>
+<canvas id="canvas" width="500" height="600"></canvas>
+<div id="msg">鼠标移动挡板 | 点击发射</div>
+<script>
+var c=document.getElementById('canvas'),x=c.getContext('2d'),W=c.width,H=c.height,scoreEl=document.getElementById('score'),msg=document.getElementById('msg');
+var ball={x:0,y:0,r:7,dx:0,dy:0,speed:5,on:false};
+var paddle={w:90,h:10,y:H-30,x:W/2-45};
+var flippers={left:{x:80,y:H-60,w:80,h:8,angle:0},right:{x:W-80-80,y:H-60,w:80,h:8,angle:0}};
+var bumpers=[{x:150,y:200,r:30},{x:350,y:200,r:30},{x:250,y:300,r:30}];
+var score=0,lives=3,keys={};
+function resetBall(){ball.on=false;ball.x=paddle.x+paddle.w/2;ball.y=paddle.y-ball.r-1;ball.dx=0;ball.dy=0}
+function launch(){if(!ball.on){ball.dx=(Math.random()-0.5)*3;ball.dy=-ball.speed;ball.on=true}}
+function update(){
+if(!ball.on){draw();return}
+ball.y+=ball.dy;ball.x+=ball.dx;
+if(ball.x-ball.r<0||ball.x+ball.r>W)ball.dx=-ball.dx;
+if(ball.y-ball.r<0)ball.dy=-ball.dy;
+if(ball.y+ball.r>paddle.y&&ball.x>paddle.x&&ball.x<paddle.x+paddle.w&&ball.dy>0){ball.dy=-ball.dy;ball.dx+=(ball.x-(paddle.x+paddle.w/2))*0.1}
+bumpers.forEach(function(b){var dx=ball.x-b.x,dy=ball.y-b.y,d=Math.sqrt(dx*dx+dy*dy);if(d<b.r+ball.r){ball.dx=(dx/d)*6;ball.dy=(dy/d)*6;score++;scoreEl.textContent=score}});
+if(ball.y>H+20){lives--;if(lives<=0){msg.textContent='游戏结束！得分: '+score;return}resetBall()}
+draw();requestAnimationFrame(update)}
+function draw(){x.clearRect(0,0,W,H);
+bumpers.forEach(function(b){x.beginPath();x.arc(b.x,b.y,b.r,0,Math.PI*2);x.fillStyle='#e74c3c';x.fill();x.strokeStyle='#c0392b';x.lineWidth=2;x.stroke()});
+x.fillStyle='#eee';x.fillRect(paddle.x,paddle.y,paddle.w,paddle.h);
+x.beginPath();x.arc(ball.x,ball.y,ball.r,0,Math.PI*2);x.fillStyle='#f1c40f';x.fill();x.closePath()}
+c.addEventListener('mousemove',function(e){var r=c.getBoundingClientRect();paddle.x=e.clientX-r.left-paddle.w/2;if(paddle.x<0)paddle.x=0;if(paddle.x+paddle.w>W)paddle.x=W-paddle.w});
+c.addEventListener('click',launch);
+document.addEventListener('keydown',function(e){if(e.key===' ')launch()});
+resetBall();draw();
+</script>
+</body>
+</html>

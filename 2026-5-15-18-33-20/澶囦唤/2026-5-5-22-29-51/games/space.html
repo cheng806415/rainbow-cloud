@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>太空射击</title>
+<style>
+body { background: #000; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; overflow: hidden; }
+#wrap { text-align: center; color: #fff; }
+#info { font-size: 18px; margin-bottom: 10px; color: #aaa; }
+#info span { color: #3498db; font-weight: bold; }
+canvas { display: block; margin: 0 auto; border-radius: 8px; }
+#over { margin-top: 10px; font-size: 18px; color: #888; }
+</style>
+</head>
+<body>
+<div id="wrap">
+<div id="info">分数: <span id="score">0</span> | 生命: <span id="lives">3</span></div>
+<canvas id="c"></canvas>
+<div id="over">方向键移动，空格射击 | 点击开始</div>
+</div>
+<script>
+var canvas=document.getElementById('c'),ctx=canvas.getContext('2d');
+canvas.width=600;canvas.height=700;
+var W=canvas.width,H=canvas.height;
+var ship={x:W/2,y:H-60,w:30,h:20,spd:6};
+var bullets=[],enemies=[],particles=[],score=0,lives=3,alive=false;
+var keys={},frame=0;
+
+function resetGame(){
+    score=0;lives=3;enemies=[];bullets=[];particles=[];
+    ship.x=W/2;ship.y=H-60;
+    document.getElementById('score').textContent=0;
+    document.getElementById('lives').textContent=3;
+}
+
+function shoot(){
+    bullets.push({x:ship.x,y:ship.y-ship.h/2,spd:8});
+}
+
+function spawnEnemy(){
+    enemies.push({x:Math.random()*(W-30)+15,y:-20,w:25,h:20,spd:1.5+Math.random()*2});
+}
+
+function addParticle(ex,ey){
+    for(var i=0;i<8;i++){
+        particles.push({x:ex,y:ey,dx:(Math.random()-0.5)*4,dy:(Math.random()-0.5)*4,life:20});
+    }
+}
+
+function update(){
+    frame++;
+    if(keys.ArrowLeft||keys.a)ship.x-=ship.spd;
+    if(keys.ArrowRight||keys.d)ship.x+=ship.spd;
+    if(keys.ArrowUp||keys.w)ship.y-=ship.spd;
+    if(keys.ArrowDown||keys.s)ship.y+=ship.spd;
+    if(ship.x<15)ship.x=15;if(ship.x>W-15)ship.x=W-15;
+    if(ship.y<15)ship.y=15;if(ship.y>H-15)ship.y=H-15;
+    
+    if(frame%10===0){
+        for(var i=0;i<bullets.length;i++){
+            bullets[i].y-=bullets[i].spd;
+        }
+    }
+    bullets=bullets.filter(function(b){return b.y>-10;});
+    
+    if(frame%30===0)spawnEnemy();
+    
+    for(var i=0;i<enemies.length;i++){
+        enemies[i].y+=enemies[i].spd;
+    }
+    
+    for(var i=enemies.length-1;i>=0;i--){
+        var e=enemies[i];
+        for(var j=bullets.length-1;j>=0;j--){
+            var b=bullets[j];
+            if(Math.abs(e.x-b.x)<e.w/2+3&&Math.abs(e.y-b.y)<e.h/2+3){
+                addParticle(e.x,e.y);
+                enemies.splice(i,1);
+                bullets.splice(j,1);
+                score++;
+                document.getElementById('score').textContent=score;
+                break;
+            }
+        }
+    }
+    
+    enemies=enemies.filter(function(e){
+        if(e.y>H+20)return false;
+        if(Math.abs(e.x-ship.x)<(e.w+ship.w)/2&&Math.abs(e.y-ship.y)<(e.h+ship.h)/2){
+            lives--;
+            document.getElementById('lives').textContent=lives;
+            addParticle(ship.x,ship.y);
+            if(lives<=0){
+                alive=false;
+                document.getElementById('over').textContent='游戏结束！得分: '+score+' 点击重新开始';
+            }
+            return false;
+        }
+        return true;
+    });
+    
+    for(var i=particles.length-1;i>=0;i--){
+        particles[i].x+=particles[i].dx;
+        particles[i].y+=particles[i].dy;
+        particles[i].life--;
+        if(particles[i].life<=0)particles.splice(i,1);
+    }
+}
+
+function draw(){
+    ctx.clearRect(0,0,W,H);
+    ctx.fillStyle='#3498db';
+    ctx.beginPath();
+    ctx.moveTo(ship.x,ship.y-ship.h/2);
+    ctx.lineTo(ship.x-ship.w/2,ship.y+ship.h/2);
+    ctx.lineTo(ship.x+ship.w/2,ship.y+ship.h/2);
+    ctx.closePath();
+    ctx.fill();
+    
+    for(var i=0;i<bullets.length;i++){
+        var b=bullets[i];
+        ctx.fillStyle='#f1c40f';
+        ctx.fillRect(b.x-2,b.y,4,10);
+    }
+    
+    for(var i=0;i<enemies.length;i++){
+        var e=enemies[i];
+        ctx.fillStyle='#e74c3c';
+        ctx.fillRect(e.x-e.w/2,e.y-e.h/2,e.w,e.h);
+    }
+    
+    for(var i=0;i<particles.length;i++){
+        var p=particles[i];
+        ctx.fillStyle='rgba(231,76,60,'+p.life/20+')';
+        ctx.fillRect(p.x-2,p.y-2,4,4);
+    }
+}
+
+function loop(){
+    if(!alive){draw();return;}
+    update();draw();
+    requestAnimationFrame(loop);
+}
+
+document.addEventListener('keydown',function(e){
+    keys[e.key]=true;
+    if(e.key===' '&&alive){e.preventDefault();shoot();}
+    if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].indexOf(e.key)!==-1)e.preventDefault();
+});
+
+document.addEventListener('keyup',function(e){
+    keys[e.key]=false;
+});
+
+canvas.addEventListener('click',function(){
+    if(!alive){
+        resetGame();
+        alive=true;
+        document.getElementById('over').textContent='';
+        loop();
+    }
+});
+
+draw();
+</script>
+</body>
+</html>

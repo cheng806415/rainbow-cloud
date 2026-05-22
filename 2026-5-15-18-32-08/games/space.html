@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>太空射击</title>
+<style>
+body { background: #000; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; overflow: hidden; }
+#wrap { text-align: center; color: #fff; }
+#info { font-size: 18px; margin-bottom: 10px; color: #aaa; }
+#info span { color: #3498db; font-weight: bold; }
+canvas { display: block; margin: 0 auto; border-radius: 8px; }
+#over { margin-top: 10px; font-size: 18px; color: #888; }
+</style>
+</head>
+<body>
+<div id="wrap">
+<div id="info">分数: <span id="score">0</span> | 生命: <span id="lives">3</span></div>
+<canvas id="c"></canvas>
+<div id="over">方向键移动，空格射击 | 点击开始</div>
+</div>
+<script>
+(function() {
+    var canvas=document.getElementById('c'),ctx=canvas.getContext('2d');
+    canvas.width=600;canvas.height=700;
+    var W=canvas.width,H=canvas.height;
+    
+    var gameState = {
+        ship: {x:W/2,y:H-60,w:30,h:20,spd:6},
+        bullets: [],
+        enemies: [],
+        particles: [],
+        score: 0,
+        lives: 3,
+        alive: false,
+        keys: {},
+        frame: 0
+    };
+
+    function resetGame(){
+        gameState.score=0;
+        gameState.lives=3;
+        gameState.enemies=[];
+        gameState.bullets=[];
+        gameState.particles=[];
+        gameState.ship.x=W/2;
+        gameState.ship.y=H-60;
+        document.getElementById('score').textContent=0;
+        document.getElementById('lives').textContent=3;
+    }
+
+    function shoot(){
+        gameState.bullets.push({x:gameState.ship.x,y:gameState.ship.y-gameState.ship.h/2,spd:8});
+    }
+
+    function spawnEnemy(){
+        gameState.enemies.push({x:Math.random()*(W-30)+15,y:-20,w:25,h:20,spd:1.5+Math.random()*2});
+    }
+
+    function addParticle(ex,ey){
+        for(var i=0;i<8;i++){
+            gameState.particles.push({x:ex,y:ey,dx:(Math.random()-0.5)*4,dy:(Math.random()-0.5)*4,life:20});
+        }
+    }
+
+    function update(){
+        gameState.frame++;
+        if(gameState.keys.ArrowLeft||gameState.keys.a)gameState.ship.x-=gameState.ship.spd;
+        if(gameState.keys.ArrowRight||gameState.keys.d)gameState.ship.x+=gameState.ship.spd;
+        if(gameState.keys.ArrowUp||gameState.keys.w)gameState.ship.y-=gameState.ship.spd;
+        if(gameState.keys.ArrowDown||gameState.keys.s)gameState.ship.y+=gameState.ship.spd;
+        if(gameState.ship.x<15)gameState.ship.x=15;
+        if(gameState.ship.x>W-15)gameState.ship.x=W-15;
+        if(gameState.ship.y<15)gameState.ship.y=15;
+        if(gameState.ship.y>H-15)gameState.ship.y=H-15;
+        
+        if(gameState.frame%10===0){
+            for(var i=0;i<gameState.bullets.length;i++){
+                gameState.bullets[i].y-=gameState.bullets[i].spd;
+            }
+        }
+        gameState.bullets=gameState.bullets.filter(function(b){return b.y>-10;});
+        
+        if(gameState.frame%30===0)spawnEnemy();
+        
+        for(var i=0;i<gameState.enemies.length;i++){
+            gameState.enemies[i].y+=gameState.enemies[i].spd;
+        }
+        
+        for(var i=gameState.enemies.length-1;i>=0;i--){
+            var e=gameState.enemies[i];
+            for(var j=gameState.bullets.length-1;j>=0;j--){
+                var b=gameState.bullets[j];
+                if(Math.abs(e.x-b.x)<e.w/2+3&&Math.abs(e.y-b.y)<e.h/2+3){
+                    addParticle(e.x,e.y);
+                    gameState.enemies.splice(i,1);
+                    gameState.bullets.splice(j,1);
+                    gameState.score++;
+                    document.getElementById('score').textContent=gameState.score;
+                    break;
+                }
+            }
+        }
+        
+        gameState.enemies=gameState.enemies.filter(function(e){
+            if(e.y>H+20)return false;
+            if(Math.abs(e.x-gameState.ship.x)<(e.w+gameState.ship.w)/2&&Math.abs(e.y-gameState.ship.y)<(e.h+gameState.ship.h)/2){
+                gameState.lives--;
+                document.getElementById('lives').textContent=gameState.lives;
+                addParticle(gameState.ship.x,gameState.ship.y);
+                if(gameState.lives<=0){
+                    gameState.alive=false;
+                    document.getElementById('over').textContent='游戏结束！得分: '+gameState.score+' 点击重新开始';
+                }
+                return false;
+            }
+            return true;
+        });
+        
+        for(var i=gameState.particles.length-1;i>=0;i--){
+            gameState.particles[i].x+=gameState.particles[i].dx;
+            gameState.particles[i].y+=gameState.particles[i].dy;
+            gameState.particles[i].life--;
+            if(gameState.particles[i].life<=0)gameState.particles.splice(i,1);
+        }
+    }
+
+    function draw(){
+        ctx.clearRect(0,0,W,H);
+        ctx.fillStyle='#3498db';
+        ctx.beginPath();
+        ctx.moveTo(gameState.ship.x,gameState.ship.y-gameState.ship.h/2);
+        ctx.lineTo(gameState.ship.x-gameState.ship.w/2,gameState.ship.y+gameState.ship.h/2);
+        ctx.lineTo(gameState.ship.x+gameState.ship.w/2,gameState.ship.y+gameState.ship.h/2);
+        ctx.closePath();
+        ctx.fill();
+        
+        for(var i=0;i<gameState.bullets.length;i++){
+            var b=gameState.bullets[i];
+            ctx.fillStyle='#f1c40f';
+            ctx.fillRect(b.x-2,b.y,4,10);
+        }
+        
+        for(var i=0;i<gameState.enemies.length;i++){
+            var e=gameState.enemies[i];
+            ctx.fillStyle='#e74c3c';
+            ctx.fillRect(e.x-e.w/2,e.y-e.h/2,e.w,e.h);
+        }
+        
+        for(var i=0;i<gameState.particles.length;i++){
+            var p=gameState.particles[i];
+            ctx.fillStyle='rgba(231,76,60,'+p.life/20+')';
+            ctx.fillRect(p.x-2,p.y-2,4,4);
+        }
+    }
+
+    function loop(){
+        if(!gameState.alive){draw();return;}
+        update();draw();
+        requestAnimationFrame(loop);
+    }
+
+    document.addEventListener('keydown',function(e){
+        gameState.keys[e.key]=true;
+        if(e.key===' '&&gameState.alive){e.preventDefault();shoot();}
+        if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].indexOf(e.key)!==-1)e.preventDefault();
+    });
+
+    document.addEventListener('keyup',function(e){
+        gameState.keys[e.key]=false;
+    });
+
+    canvas.addEventListener('click',function(){
+        if(!gameState.alive){
+            resetGame();
+            gameState.alive=true;
+            document.getElementById('over').textContent='';
+            loop();
+        }
+    });
+
+    draw();
+})();
+</script>
+</body>
+</html>

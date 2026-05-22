@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>颜色记忆</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#1a1a2e;color:#eee;font-family:"Microsoft YaHei",sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;user-select:none}
+h1{font-size:22px;margin-bottom:8px;color:#9b59b6}
+#info{font-size:14px;color:#aaa;margin-bottom:20px}
+#board{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px}
+.btn{width:140px;height:140px;border:none;border-radius:10px;cursor:pointer;opacity:0.7;transition:opacity 0.1s,transform 0.1s}
+.btn:active{transform:scale(0.95)}
+.btn.lit{opacity:1!important}
+.b0{background:#e74c3c}.b1{background:#3498db}.b2{background:#f1c40f}.b3{background:#2ecc71}
+#msg{font-size:16px;color:#e94560;margin-bottom:15px}
+#start{padding:10px 30px;background:#9b59b6;color:#fff;border:none;border-radius:6px;font-size:16px;cursor:pointer;font-family:inherit}
+#start:hover{background:#8e44ad}
+#back{position:fixed;top:15px;left:15px;color:#aaa;text-decoration:none;font-size:14px}
+#back:hover{color:#fff}
+</style>
+</head>
+<body>
+<a href="index.html" id="back">返回游戏列表</a>
+<h1>颜色记忆</h1>
+<div id="info">记住颜色序列并重复点击</div>
+<div id="board">
+  <button class="btn b0" data-i="0"></button>
+  <button class="btn b1" data-i="1"></button>
+  <button class="btn b2" data-i="2"></button>
+  <button class="btn b3" data-i="3"></button>
+</div>
+<div id="msg">点击开始</div>
+<button id="start">开始</button>
+<script>
+var seq=[],playerSeq=[],level=0,canClick=false,msg=document.getElementById('msg'),btns=document.querySelectorAll('.btn');
+function light(idx,ms){return new Promise(function(r){btns[idx].classList.add('lit');setTimeout(function(){btns[idx].classList.remove('lit');setTimeout(r,200)},ms)})}
+function playSeq(){return new Promise(function(r){var d=400;function next(i){if(i>=seq.length){canClick=true;msg.textContent='你的回合！';r();return}light(seq[i],d).then(function(){next(i+1)})}next(0)})}
+function nextRound(){level++;playerSeq=[];canClick=false;msg.textContent='第 '+level+' 关';seq.push(Math.floor(Math.random()*4));setTimeout(function(){playSeq()},500)}
+function check(i){light(i,300);playerSeq.push(i);var idx=playerSeq.length-1;if(playerSeq[idx]!==seq[idx]){msg.textContent='游戏结束！到达第 '+level+' 关';seq=[];playerSeq=[];level=0;return}if(playerSeq.length===seq.length){canClick=false;msg.textContent='正确！';setTimeout(nextRound,1000)}}
+btns.forEach(function(b){b.addEventListener('click',function(){if(canClick)check(parseInt(b.dataset.i))})});
+document.getElementById('start').addEventListener('click',function(){seq=[];playerSeq=[];level=0;nextRound()});
+</script>
+</body>
+</html>

@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>颜色记忆</title>
+<style>
+body { background: #1a1a2e; color: #eee; font-family: "Microsoft YaHei",sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+#wrap { text-align: center; }
+h2 { color: #9b59b6; margin-bottom: 10px; }
+#info { font-size: 14px; color: #aaa; margin-bottom: 20px; }
+#board { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 0 auto 20px; width: 280px; }
+.sbtn { width: 130px; height: 130px; border: none; border-radius: 10px; cursor: pointer; opacity: 0.7; transition: opacity 0.1s, transform 0.1s; }
+.sbtn:active { transform: scale(0.95); }
+.sbtn.lit { opacity: 1; }
+.s0 { background: #e74c3c; }
+.s1 { background: #3498db; }
+.s2 { background: #f1c40f; }
+.s3 { background: #2ecc71; }
+#msg { font-size: 16px; color: #e94560; margin-bottom: 15px; min-height: 24px; }
+#startBtn { padding: 10px 30px; background: #9b59b6; color: #fff; border: none; border-radius: 6px; font-size: 16px; cursor: pointer; }
+#startBtn:hover { background: #8e44ad; }
+</style>
+</head>
+<body>
+<div id="wrap">
+<h2>颜色记忆</h2>
+<div id="info">记住颜色序列并重复点击</div>
+<div id="board">
+<button class="sbtn s0" data-i="0"></button>
+<button class="sbtn s1" data-i="1"></button>
+<button class="sbtn s2" data-i="2"></button>
+<button class="sbtn s3" data-i="3"></button>
+</div>
+<div id="msg">点击开始</div>
+<button id="startBtn" onclick="beginGame()">开始</button>
+</div>
+<script>
+var seq = [], playerSeq = [], level = 0, canClick = false;
+var msg = document.getElementById('msg');
+var btns = document.querySelectorAll('.sbtn');
+var buttons = [btns[0], btns[1], btns[2], btns[3]];
+
+buttons.forEach(function(b) {
+    b.addEventListener('click', function() {
+        var idx = parseInt(b.getAttribute('data-i'));
+        if (canClick) {
+            light(idx, 300);
+            playerSeq.push(idx);
+            var pIdx = playerSeq.length - 1;
+            if (playerSeq[pIdx] !== seq[pIdx]) {
+                msg.textContent = '游戏结束！到达第 ' + level + ' 关';
+                seq = [];
+                playerSeq = [];
+                level = 0;
+                canClick = false;
+                return;
+            }
+            if (playerSeq.length === seq.length) {
+                canClick = false;
+                msg.textContent = '正确！';
+                setTimeout(nextRound, 1000);
+            }
+        }
+    });
+});
+
+function light(idx, ms) {
+    buttons[idx].classList.add('lit');
+    setTimeout(function() {
+        buttons[idx].classList.remove('lit');
+    }, ms);
+}
+
+function playSequence(callback) {
+    var i = 0;
+    function next() {
+        if (i >= seq.length) {
+            callback();
+            return;
+        }
+        light(seq[i], 400);
+        i++;
+        setTimeout(next, 600);
+    }
+    next();
+}
+
+function nextRound() {
+    level++;
+    playerSeq = [];
+    canClick = false;
+    msg.textContent = '第 ' + level + ' 关';
+    seq.push(Math.floor(Math.random() * 4));
+    playSequence(function() {
+        canClick = true;
+        msg.textContent = '你的回合！';
+    });
+}
+
+function beginGame() {
+    seq = [];
+    playerSeq = [];
+    level = 0;
+    nextRound();
+}
+</script>
+</body>
+</html>

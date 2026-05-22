@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>接方块</title>
+<style>
+body { background: #111; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; overflow: hidden; }
+#wrap { text-align: center; color: #fff; }
+#info { font-size: 18px; margin-bottom: 10px; color: #aaa; }
+#info span { color: #e67e22; font-weight: bold; }
+canvas { display: block; margin: 0 auto; border-radius: 8px; }
+#over { margin-top: 10px; font-size: 18px; color: #888; }
+</style>
+</head>
+<body>
+<div id="wrap">
+<div id="info">分数: <span id="score">0</span> | 漏掉: <span id="missed">0</span>/3</div>
+<canvas id="c"></canvas>
+<div id="over">鼠标移动 | 点击开始</div>
+</div>
+<script>
+var canvas=document.getElementById('c'),ctx=canvas.getContext('2d');
+canvas.width=600;canvas.height=500;
+var W=canvas.width,H=canvas.height;
+var bucket={w:80,h:12,y:H-20,x:W/2-40};
+var items=[],score=0,miss=0,alive=false,spawnT=0,frame=0;
+var colors=['#e74c3c','#e67e22','#f1c40f','#2ecc71','#3498db','#9b59b6'];
+
+function resetGame(){
+    score=0;miss=0;items=[];spawnT=0;frame=0;
+    bucket.x=W/2-40;
+    document.getElementById('score').textContent=0;
+    document.getElementById('missed').textContent=0;
+}
+
+function update(){
+    frame++;spawnT++;
+    if(spawnT>40){
+        spawnT=0;
+        items.push({x:Math.random()*(W-30)+15,y:-20,w:20,h:20,spd:2+Math.random()*2,color:colors[Math.floor(Math.random()*colors.length)]});
+    }
+    items.forEach(function(i){i.y+=i.spd;});
+    for(var i=items.length-1;i>=0;i--){
+        var it=items[i];
+        if(it.y+it.h>bucket.y&&it.x+it.w>bucket.x&&it.x<bucket.x+bucket.w){
+            items.splice(i,1);
+            score++;
+            document.getElementById('score').textContent=score;
+        }
+    }
+    items=items.filter(function(it){
+        if(it.y>H){
+            miss++;
+            document.getElementById('missed').textContent=miss;
+            if(miss>=3){
+                alive=false;
+                document.getElementById('over').textContent='游戏结束！得分: '+score+' 点击重新开始';
+            }
+            return false;
+        }
+        return true;
+    });
+}
+
+function draw(){
+    ctx.clearRect(0,0,W,H);
+    ctx.fillStyle='#8e44ad';
+    ctx.fillRect(bucket.x,bucket.y,bucket.w,bucket.h);
+    items.forEach(function(i){
+        ctx.fillStyle=i.color;
+        ctx.fillRect(i.x,i.y,i.w,i.h);
+    });
+}
+
+function loop(){
+    if(!alive){draw();return;}
+    update();draw();
+    requestAnimationFrame(loop);
+}
+
+canvas.addEventListener('mousemove',function(e){
+    var rect=canvas.getBoundingClientRect();
+    bucket.x=e.clientX-rect.left-bucket.w/2;
+    if(bucket.x<0)bucket.x=0;
+    if(bucket.x+bucket.w>W)bucket.x=W-bucket.w;
+});
+
+canvas.addEventListener('click',function(){
+    if(!alive){
+        resetGame();
+        alive=true;
+        document.getElementById('over').textContent='';
+        loop();
+    }
+});
+
+draw();
+</script>
+</body>
+</html>

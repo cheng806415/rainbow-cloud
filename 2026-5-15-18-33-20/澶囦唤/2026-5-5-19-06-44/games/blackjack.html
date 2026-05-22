@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>21点</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0d2818;color:#eee;font-family:"Microsoft YaHei",sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;user-select:none}
+h1{font-size:22px;margin-bottom:8px;color:#27ae60}
+#info{font-size:14px;color:#aaa;margin-bottom:15px}
+.area{background:#155d30;border-radius:10px;padding:15px 25px;margin:8px 0;min-width:300px;text-align:center}
+.area h3{font-size:14px;color:#aaa;margin-bottom:8px}
+.cards{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;min-height:80px}
+.card{background:#fff;color:#333;border-radius:6px;width:50px;height:70px;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:bold;box-shadow:0 2px 6px rgba(0,0,0,0.3)}
+.card.red{color:#e74c3c}
+.card.face{background:#ddd}
+#result{font-size:18px;color:#f1c40f;margin:10px 0;min-height:24px}
+#btns{display:flex;gap:10px;margin-top:10px}
+#btns button{padding:10px 25px;border:none;border-radius:6px;font-size:15px;cursor:pointer;font-family:inherit}
+#hit{background:#27ae60;color:#fff}#hit:hover{background:#219a52}
+#stand{background:#e67e22;color:#fff}#stand:hover{background:#d35400}
+#deal{background:#3498db;color:#fff}#deal:hover{background:#2980b9}
+#back{position:fixed;top:15px;left:15px;color:#aaa;text-decoration:none;font-size:14px}
+#back:hover{color:#fff}
+</style>
+</head>
+<body>
+<a href="index.html" id="back">返回游戏列表</a>
+<h1>21点</h1>
+<div id="info">目标: 尽量接近21点但不超过</div>
+<div class="area"><h3>电脑 <span id="dv"></span></h3><div class="cards" id="dealer"></div></div>
+<div id="result"></div>
+<div class="area"><h3>你 <span id="pv"></span></h3><div class="cards" id="player"></div></div>
+<div id="btns"><button id="deal" onclick="deal()">发牌</button><button id="hit" onclick="hit()" disabled>要牌</button><button id="stand" onclick="stand()" disabled>停牌</button></div>
+<script>
+var suits=['♠','♥','♦','♣'],vals=['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+var deck,playerHand,dealerHand,gameOn;
+function makeDeck(){deck=[];for(var i=0;i<suits.length;i++)for(var j=0;j<vals.length;j++)deck.push({s:suits[i],v:vals[j]})}
+function shuffle(){for(var i=deck.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=deck[i];deck[i]=deck[j];deck[j]=t}}
+function cardVal(c){if(c.v==='A')return 11;if(['J','Q','K'].indexOf(c.v)!==-1)return 10;return parseInt(c.v)}
+function handVal(h){var v=0,a=0;h.forEach(function(c){v+=cardVal(c);if(c.v==='A')a++});while(v>21&&a>0){v-=10;a--}return v}
+function renderCard(c){var d=document.createElement('div');d.className='card'+(['♥','♦'].indexOf(c.s)!==-1?' red':'');d.textContent=c.s+c.v;return d}
+function render(showAll){
+var p=document.getElementById('player'),d=document.getElementById('dealer');
+p.innerHTML='';d.innerHTML='';
+playerHand.forEach(function(c){p.appendChild(renderCard(c))});
+dealerHand.forEach(function(c,i){if(i===1&&!showAll){var f=document.createElement('div');f.className='card face';f.textContent='?';d.appendChild(f)}else d.appendChild(renderCard(c))});
+document.getElementById('pv').textContent=handVal(playerHand);
+document.getElementById('dv').textContent=showAll?handVal(dealerHand):cardVal(dealerHand[0])+'+'}
+function setResult(r,done){document.getElementById('result').textContent=r;if(done){gameOn=false;document.getElementById('hit').disabled=true;document.getElementById('stand').disabled=true;document.getElementById('deal').disabled=false}}
+function deal(){makeDeck();shuffle();playerHand=[deck.pop(),deck.pop()];dealerHand=[deck.pop(),deck.pop()];gameOn=true;document.getElementById('hit').disabled=false;document.getElementById('stand').disabled=false;document.getElementById('deal').disabled=true;document.getElementById('result').textContent='';render(false);if(handVal(playerHand)===21)setResult('21点！你赢了！',true)}
+function hit(){if(!gameOn)return;playerHand.push(deck.pop());render(false);if(handVal(playerHand)>21){setResult('爆牌！你输了',true);render(true)}else if(handVal(playerHand)===21)stand()}
+function stand(){if(!gameOn)return;render(true);function dDeal(){if(handVal(dealerHand)<17){dealerHand.push(deck.pop());render(true);setTimeout(dDeal,400)}else{var pv=handVal(playerHand),dv=handVal(dealerHand);if(dv>21)setResult('电脑爆牌！你赢了！',true);else if(pv>dv)setResult('你赢了！',true);else if(pv<dv)setResult('你输了',true);else setResult('平局',true)}}setTimeout(dDeal,400)}
+</script>
+</body>
+</html>

@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>打地鼠</title>
+<style>
+body { background: #2d1a0e; color: #eee; font-family: "Microsoft YaHei",sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+#wrap { text-align: center; }
+h2 { color: #e67e22; margin-bottom: 10px; }
+#info { font-size: 16px; margin-bottom: 15px; color: #aaa; }
+#info span { color: #f39c12; font-weight: bold; }
+.grid { display: grid; grid-template-columns: repeat(3, 100px); gap: 12px; margin: 0 auto; }
+.hole { width: 100px; height: 100px; background: #1a0e05; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 48px; cursor: pointer; border: 3px solid #3d2a1a; user-select: none; }
+.hole:hover { border-color: #e67e22; }
+.hole.active { background: #3d2a1a; }
+#btn { margin-top: 20px; padding: 10px 30px; background: #e67e22; color: #fff; border: none; border-radius: 6px; font-size: 16px; cursor: pointer; }
+#btn:hover { background: #d35400; }
+</style>
+</head>
+<body>
+<div id="wrap">
+<h2>打地鼠</h2>
+<div id="info">得分: <span id="score">0</span> | 时间: <span id="time">30</span>秒</div>
+<div class="grid" id="grid"></div>
+<button id="btn" onclick="startGame()">开始游戏</button>
+</div>
+<script>
+var scoreEl = document.getElementById('score');
+var timeEl = document.getElementById('time');
+var btn = document.getElementById('btn');
+var grid = document.getElementById('grid');
+var score = 0, timeLeft = 30, timer, moleTimer, activeHole = -1, gameOn = false;
+var holes = [];
+
+for (var i = 0; i < 9; i++) {
+    var h = document.createElement('div');
+    h.className = 'hole';
+    h.textContent = '';
+    h.dataset.index = i;
+    (function(idx) {
+        h.addEventListener('click', function() { onHit(idx); });
+    })(i);
+    grid.appendChild(h);
+    holes.push(h);
+}
+
+function showMole() {
+    activeHole = Math.floor(Math.random() * 9);
+    for (var i = 0; i < 9; i++) {
+        holes[i].classList.remove('active');
+        holes[i].textContent = '';
+    }
+    holes[activeHole].classList.add('active');
+    holes[activeHole].textContent = 'O';
+}
+
+function onHit(idx) {
+    if (!gameOn) return;
+    if (idx === activeHole) {
+        score++;
+        scoreEl.textContent = score;
+        holes[idx].textContent = 'X';
+        holes[idx].classList.remove('active');
+        activeHole = -1;
+    }
+}
+
+function tick() {
+    timeLeft--;
+    timeEl.textContent = timeLeft;
+    if (timeLeft <= 0) {
+        gameOn = false;
+        clearInterval(timer);
+        clearInterval(moleTimer);
+        for (var i = 0; i < 9; i++) {
+            holes[i].classList.remove('active');
+            holes[i].textContent = '';
+        }
+        btn.textContent = '重新开始';
+        alert('时间到！得分: ' + score);
+    }
+}
+
+function startGame() {
+    if (gameOn) return;
+    score = 0;
+    timeLeft = 30;
+    scoreEl.textContent = 0;
+    timeEl.textContent = 30;
+    gameOn = true;
+    btn.textContent = '游戏中...';
+    timer = setInterval(tick, 1000);
+    moleTimer = setInterval(showMole, 800);
+    showMole();
+}
+</script>
+</body>
+</html>

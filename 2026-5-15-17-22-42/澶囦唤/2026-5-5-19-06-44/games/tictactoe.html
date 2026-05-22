@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>井字棋</title>
+<style>
+body{background:#2c3e50;color:#eee;font-family:"Microsoft YaHei",sans-serif;display:flex;justify-content:center;align-items:center;height:100vh;margin:0;flex-direction:column}
+h2{color:#e74c3c;margin-bottom:15px;letter-spacing:2px}
+#board{display:grid;grid-template-columns:repeat(3,100px);gap:5px;margin-bottom:20px}
+.cell{width:100px;height:100px;background:#34495e;display:flex;align-items:center;justify-content:center;font-size:48px;font-weight:bold;cursor:pointer;border-radius:8px;user-select:none;transition:background 0.15s}
+.cell:hover:not(.taken){background:#4a5568}
+.cell.x{color:#3498db}
+.cell.o{color:#e74c3c}
+#msg{font-size:18px;margin-bottom:15px;min-height:30px;color:#f1c40f}
+button{background:#e74c3c;color:#fff;border:none;padding:10px 25px;border-radius:6px;cursor:pointer;font-size:14px}
+button:hover{background:#c0392b}
+</style>
+</head>
+<body>
+<h2>井字棋</h2>
+<div id="msg">你的回合 (X)</div>
+<div id="board"></div>
+<button onclick="init()">重新开始</button>
+<script>
+var board,gameOver;
+function init(){
+  board=['','','','','','','','',''];
+  gameOver=false;
+  document.getElementById('msg').textContent='你的回合 (X)';
+  drawBoard();
+}
+function drawBoard(){
+  var b=document.getElementById('board');
+  b.innerHTML='';
+  for(var i=0;i<9;i++){
+    var d=document.createElement('div');
+    d.className='cell'+(board[i]?(board[i]==='X'?' x':' o')+' taken':'');
+    d.textContent=board[i];
+    d.dataset.idx=i;
+    d.onclick=function(){playerMove(+this.dataset.idx)};
+    b.appendChild(d);
+  }
+}
+function playerMove(i){
+  if(gameOver||board[i])return;
+  board[i]='X';
+  drawBoard();
+  if(checkWin('X')){document.getElementById('msg').textContent='你赢了！';gameOver=true;return;}
+  if(board.every(function(c){return c;})){document.getElementById('msg').textContent='平局！';gameOver=true;return;}
+  document.getElementById('msg').textContent='电脑思考中...';
+  setTimeout(aiMove,500);
+}
+function aiMove(){
+  var best=-1;
+  for(var i=0;i<9;i++){if(!board[i]){board[i]='O';if(checkWin('O')){best=i;board[i]='';break;}board[i]='';}}
+  if(best===-1)for(var i=0;i<9;i++){if(!board[i]){board[i]='X';if(checkWin('X')){best=i;board[i]='';break;}board[i]='';}}
+  if(best===-1){if(!board[4])best=4;else{var corners=[0,2,6,8].filter(function(i){return !board[i];});if(corners.length)best=corners[Math.floor(Math.random()*corners.length)];}}
+  if(best===-1){var empty=[];for(var i=0;i<9;i++)if(!board[i])empty.push(i);if(empty.length)best=empty[Math.floor(Math.random()*empty.length)];}
+  board[best]='O';
+  drawBoard();
+  if(checkWin('O')){document.getElementById('msg').textContent='电脑赢了！';gameOver=true;return;}
+  if(board.every(function(c){return c;})){document.getElementById('msg').textContent='平局！';gameOver=true;return;}
+  document.getElementById('msg').textContent='你的回合 (X)';
+}
+function checkWin(p){
+  var wins=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+  return wins.some(function(w){return w.every(function(i){return board[i]===p});});
+}
+init();
+</script>
+</body>
+</html>

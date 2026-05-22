@@ -1,0 +1,41 @@
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+
+# IntelliJ
+.idea/
+*.iml
+
+# VSCode
+.vscode/
+
+# Flutter/Dart
+build/
+.pub-cache/
+.packages
+.pub/
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# iOS/Android
+android/app/src/main/res/drawable-*
+android/app/src/main/res/mipmap-*
+android/local.properties
+ios/Flutter/Flutter.framework/
+ios/Flutter/App.framework/
+ios/Flutter/Generated.xcconfig/
+ios/Flutter/flutter_export_environment.sh/
+ios/Flutter/ephemeral/
+
+# Windows
+windows/flutter/ephemeral/
+windows/runner/Debug/
+windows/runner/Release/
+
+# macOS
+.DS_Store
+
+# Linux
+*~

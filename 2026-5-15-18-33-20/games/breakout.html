@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>打砖块</title>
+<style>
+body { background: #111; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; overflow: hidden; }
+#wrap { text-align: center; color: #fff; }
+#info { font-size: 18px; margin-bottom: 10px; color: #aaa; }
+#info span { color: #e94560; font-weight: bold; }
+canvas { display: block; margin: 0 auto; border-radius: 8px; }
+#over { margin-top: 10px; font-size: 18px; color: #888; }
+</style>
+</head>
+<body>
+<div id="wrap">
+<div id="info">分数: <span id="score">0</span> | 生命: <span id="lives">3</span></div>
+<canvas id="c"></canvas>
+<div id="over">点击屏幕开始游戏 | 鼠标控制挡板</div>
+</div>
+<script>
+var canvas=document.getElementById('c'),ctx=canvas.getContext('2d');
+canvas.width=800;canvas.height=500;
+var W=canvas.width,H=canvas.height;
+var score=0,lives=3,alive=false;
+var ball={x:0,y:0,r:6,dx:0,dy:0,spd:5};
+var paddle={w:100,h:12,y:H-30,x:W/2-50};
+var bricks=[],cols=10,rows=5,bw=W/cols-4,bh=20,pad=2;
+var colors=['#e74c3c','#e67e22','#f1c40f','#2ecc71','#3498db'];
+var animId;
+
+function makeBricks(){
+    bricks=[];
+    for(var r=0;r<rows;r++){
+        bricks[r]=[];
+        for(var c=0;c<cols;c++){
+            bricks[r][c]={x:c*(bw+pad)+pad+2,y:r*(bh+pad)+30,hp:1};
+        }
+    }
+}
+
+function resetBall(){
+    ball.x=paddle.x+paddle.w/2;
+    ball.y=paddle.y-ball.r-1;
+    ball.dx=0;ball.dy=0;
+}
+
+function launch(){
+    ball.dx=(Math.random()-0.5)*4;
+    ball.dy=-ball.spd;
+    alive=true;
+    document.getElementById('over').textContent='';
+    loop();
+}
+
+function draw(){
+    ctx.clearRect(0,0,W,H);
+    for(var r=0;r<rows;r++){
+        for(var c=0;c<cols;c++){
+            if(!bricks[r][c].hp)continue;
+            ctx.fillStyle=colors[r];
+            ctx.fillRect(bricks[r][c].x,bricks[r][c].y,bw,bh);
+            ctx.fillStyle='rgba(255,255,255,0.15)';
+            ctx.fillRect(bricks[r][c].x,bricks[r][c].y,bw,4);
+        }
+    }
+    ctx.fillStyle='#eee';
+    ctx.fillRect(paddle.x,paddle.y,paddle.w,paddle.h);
+    ctx.beginPath();
+    ctx.arc(ball.x,ball.y,ball.r,0,Math.PI*2);
+    ctx.fillStyle='#e94560';
+    ctx.fill();
+    ctx.closePath();
+}
+
+function update(){
+    ball.x+=ball.dx;
+    ball.y+=ball.dy;
+    if(ball.x-ball.r<0||ball.x+ball.r>W)ball.dx=-ball.dx;
+    if(ball.y-ball.r<0)ball.dy=-ball.dy;
+    if(ball.y+ball.r>paddle.y&&ball.x>paddle.x&&ball.x<paddle.x+paddle.w&&ball.dy>0){
+        ball.dy=-ball.dy;
+        ball.dx+=(ball.x-(paddle.x+paddle.w/2))*0.08;
+    }
+    if(ball.y-ball.r>H){
+        lives--;
+        document.getElementById('lives').textContent=lives;
+        if(lives<=0){alive=false;document.getElementById('over').textContent='游戏结束！点击重新开始';return;}
+        resetBall();alive=false;document.getElementById('over').textContent='点击继续';return;
+    }
+    for(var r=0;r<rows;r++){
+        for(var c=0;c<cols;c++){
+            if(!bricks[r][c].hp)continue;
+            var b=bricks[r][c];
+            if(ball.x>b.x&&ball.x<b.x+bw&&ball.y-ball.r<b.y+bh&&ball.y+ball.r>b.y){
+                ball.dy=-ball.dy;
+                bricks[r][c].hp=0;
+                score++;
+                document.getElementById('score').textContent=score;
+            }
+        }
+    }
+    var left=0;
+    for(var r=0;r<rows;r++){
+        for(var c=0;c<cols;c++){
+            if(bricks[r][c].hp)left++;
+        }
+    }
+    if(left===0){
+        alive=false;
+        document.getElementById('over').textContent='全部消除！点击开始下一关';
+        makeBricks();resetBall();return;
+    }
+}
+
+function loop(){
+    if(!alive){draw();return;}
+    update();
+    draw();
+    animId=requestAnimationFrame(loop);
+}
+
+canvas.addEventListener('mousemove',function(e){
+    var rect=canvas.getBoundingClientRect();
+    paddle.x=e.clientX-rect.left-paddle.w/2;
+    if(paddle.x<0)paddle.x=0;
+    if(paddle.x+paddle.w>W)paddle.x=W-paddle.w;
+});
+
+canvas.addEventListener('click',function(){
+    if(!alive){
+        resetBall();
+        launch();
+    }
+});
+
+document.addEventListener('keydown',function(e){
+    if(e.key===' '&&!alive){
+        e.preventDefault();
+        resetBall();
+        launch();
+    }
+});
+
+makeBricks();
+resetBall();
+draw();
+</script>
+</body>
+</html>

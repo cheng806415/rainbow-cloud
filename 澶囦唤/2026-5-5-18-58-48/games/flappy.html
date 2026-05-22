@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Flappy 方块</title>
+<style>
+body { background: #000; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; overflow: hidden; }
+canvas { display: block; }
+#overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; display: flex; justify-content: center; align-items: center; flex-direction: column; background: rgba(0,0,0,0.7); z-index: 10; }
+#overlay h2 { color: #e94560; font-size: 32px; margin-bottom: 10px; }
+#overlay p { color: #aaa; font-size: 18px; margin-bottom: 20px; }
+#overlay button { background: #e94560; color: #fff; border: none; padding: 12px 40px; font-size: 18px; border-radius: 8px; cursor: pointer; }
+#overlay button:hover { background: #c73e54; }
+#score { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); color: #fff; font-size: 24px; font-family: monospace; z-index: 5; }
+#best { position: fixed; top: 60px; left: 50%; transform: translateX(-50%); color: #888; font-size: 14px; font-family: monospace; z-index: 5; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="score">0</div>
+<div id="best">最高: 0</div>
+<div id="overlay">
+<h2>Flappy 方块</h2>
+<p>点击或按空格让方块飞起穿过障碍</p>
+<button onclick="startGame()">开始游戏</button>
+</div>
+<script>
+var canvas=document.getElementById('c'),ctx=canvas.getContext('2d');
+canvas.width=400;canvas.height=600;
+var score=0,best=0,alive=false,over=false;
+var bird,birdV,pipes,pipeTimer,frameCount;
+function startGame(){
+    document.getElementById('overlay').style.display='none';
+    bird={x:80,y:300,w:30,h:30};
+    birdV=0;
+    pipes=[];
+    score=0;
+    over=false;
+    frameCount=0;
+    alive=true;
+    if(pipeTimer)clearInterval(pipeTimer);
+    pipeTimer=setInterval(addPipe,1500);
+    loop();
+}
+function addPipe(){
+    if(!alive)return;
+    var gap=160;
+    var h=80+Math.random()*(canvas.height-200-gap);
+    pipes.push({x:canvas.width,y:0,w:50,h:h,passed:false});
+    pipes.push({x:canvas.width,y:h+gap,w:50,h:canvas.height-h-gap,passed:false});
+}
+function loop(){
+    if(!alive)return;
+    ctx.fillStyle='#1a1a2e';
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+    birdV+=0.5;
+    bird.y+=birdV;
+    if(bird.y<0){bird.y=0;birdV=0;}
+    if(bird.y+bird.h>canvas.height){alive=false;}
+    for(var i=pipes.length-1;i>=0;i--){
+        var p=pipes[i];
+        p.x-=3;
+        if(p.x+p.w<0){pipes.splice(i,1);continue;}
+        if(bird.x+bird.w>p.x&&bird.x<p.x+p.w&&bird.y+bird.h>p.y&&bird.y<p.y+p.h){
+            alive=false;
+        }
+        if(!p.passed && bird.x>p.x+p.w){
+            p.passed=true;
+            if(i%2===0)score++;
+            document.getElementById('score').textContent=score;
+        }
+    }
+    ctx.fillStyle='#e94560';
+    ctx.fillRect(bird.x,bird.y,bird.w,bird.h);
+    ctx.fillStyle='#0f3460';
+    pipes.forEach(function(p){
+        ctx.fillRect(p.x,p.y,p.w,p.h);
+    });
+    if(alive)requestAnimationFrame(loop);
+    else gameOver();
+}
+function gameOver(){
+    if(score>best)best=score;
+    document.getElementById('best').textContent='最高: '+best;
+    clearInterval(pipeTimer);
+    var overlay=document.getElementById('overlay');
+    overlay.querySelector('h2').textContent='游戏结束';
+    overlay.querySelector('p').textContent='得分: '+score+' | 最高: '+best;
+    overlay.style.display='flex';
+}
+document.addEventListener('keydown',function(e){
+    if(e.key===' '||e.key==='ArrowUp'){
+        e.preventDefault();
+        if(alive)birdV=-8;
+        else if(document.getElementById('overlay').style.display!=='none')startGame();
+    }
+});
+canvas.addEventListener('click',function(){
+    if(alive)birdV=-8;
+});
+</script>
+</body>
+</html>

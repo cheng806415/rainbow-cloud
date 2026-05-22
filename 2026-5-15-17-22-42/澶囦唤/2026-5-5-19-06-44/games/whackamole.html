@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>打地鼠</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#2d1a0e;color:#eee;font-family:"Microsoft YaHei",sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;user-select:none}
+h1{font-size:22px;margin-bottom:8px;color:#e67e22}
+#info{font-size:16px;margin-bottom:15px;color:#aaa}
+#info span{color:#f39c12;font-weight:bold}
+.grid{display:grid;grid-template-columns:repeat(3,120px);gap:15px}
+.hole{width:120px;height:120px;background:#1a0e05;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:60px;cursor:pointer;border:3px solid #3d2a1a;transition:background 0.1s;user-select:none}
+.hole:hover{border-color:#e67e22}
+.hole.active{background:#3d2a1a}
+#btn{margin-top:20px;padding:10px 30px;background:#e67e22;color:#fff;border:none;border-radius:6px;font-size:16px;cursor:pointer;font-family:inherit}
+#btn:hover{background:#d35400}
+#timer{font-size:14px;color:#888;margin-top:10px}
+#back{position:fixed;top:15px;left:15px;color:#aaa;text-decoration:none;font-size:14px}
+#back:hover{color:#fff}
+</style>
+</head>
+<body>
+<a href="index.html" id="back">返回游戏列表</a>
+<h1>打地鼠</h1>
+<div id="info">得分: <span id="score">0</span> | 时间: <span id="time">30</span>秒</div>
+<div class="grid" id="grid"></div>
+<button id="btn">开始游戏</button>
+<div id="timer"></div>
+<script>
+var scoreEl=document.getElementById('score'),timeEl=document.getElementById('time'),btn=document.getElementById('btn'),grid=document.getElementById('grid');
+var score=0,timeLeft=30,timer,activeHole=-1,gameOn=false;
+for(var i=0;i<9;i++){var h=document.createElement('div');h.className='hole';h.textContent='';h.dataset.index=i;h.addEventListener('click',onHit);grid.appendChild(h)}
+var holes=document.querySelectorAll('.hole');
+function showMole(){activeHole=Math.floor(Math.random()*9);holes.forEach(function(h){h.classList.remove('active');h.textContent=''});holes[activeHole].classList.add('active');holes[activeHole].textContent='O'}
+function onHit(e){if(!gameOn)return;var idx=parseInt(e.currentTarget.dataset.index);if(idx===activeHole){score++;scoreEl.textContent=score;holes[idx].textContent='X';holes[idx].classList.remove('active');activeHole=-1;setTimeout(showMole,400)}}
+function tick(){timeLeft--;timeEl.textContent=timeLeft;if(timeLeft<=0){gameOn=false;clearInterval(timer);clearInterval(moleTimer);holes.forEach(function(h){h.classList.remove('active');h.textContent=''});btn.textContent='重新开始';alert('时间到！得分: '+score)}}
+function showLoop(){if(gameOn)showMole()}
+btn.addEventListener('click',function(){if(gameOn)return;score=0;timeLeft=30;scoreEl.textContent=score;timeEl.textContent=timeLeft;gameOn=true;btn.textContent='游戏中...';timer=setInterval(tick,1000);moleTimer=setInterval(showLoop,800);showMole()});
+</script>
+</body>
+</html>

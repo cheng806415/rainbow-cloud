@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>记忆翻牌</title>
+<style>
+body{background:#1a1a2e;color:#eee;font-family:"Microsoft YaHei",sans-serif;display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0;flex-direction:column}
+h2{color:#e94560;margin-bottom:10px;letter-spacing:2px}
+#info{margin-bottom:15px;font-size:14px;color:#aaa}
+#info span{color:#e94560;font-weight:bold}
+#grid{display:grid;gap:10px;margin-bottom:20px}
+.card{width:70px;height:90px;perspective:1000px;cursor:pointer}
+.card-inner{width:100%;height:100%;position:relative;transition:transform 0.5s;transform-style:preserve-3d}
+.card.flipped .card-inner{transform:rotateY(180deg)}
+.card.matched .card-inner{transform:rotateY(180deg)}
+.card-front,.card-back{position:absolute;width:100%;height:100%;border-radius:8px;display:flex;align-items:center;justify-content:center;backface-visibility:hidden;font-size:24px;font-weight:bold}
+.card-front{background:#0f3460;border:2px solid #1a1a2e}
+.card-back{background:#e94560;transform:rotateY(180deg);border:2px solid #c0392b}
+.card.matched .card-back{background:#27ae60;border-color:#1e8449}
+button{background:#e94560;color:#fff;border:none;padding:10px 25px;border-radius:6px;cursor:pointer;font-size:14px}
+button:hover{background:#c0392b}
+</style>
+</head>
+<body>
+<h2>记忆翻牌</h2>
+<div id="info">翻牌次数: <span id="moves">0</span> &nbsp; | &nbsp; 配对: <span id="pairs">0</span> / <span id="totalPairs">0</span></div>
+<div id="grid"></div>
+<button onclick="init()">重新开始</button>
+<script>
+var symbols=['A','B','C','D','E','F','G','H','I','J','K','L'];
+var cards,flipped,matched,moves,pairCount,total;
+function init(){
+  total=8;
+  var s=symbols.slice(0,total);
+  var arr=[...s,...s];
+  arr.sort(function(){return Math.random()-0.5});
+  cards=arr;flipped=[];matched=new Set();moves=0;pairCount=0;
+  document.getElementById('moves').textContent='0';
+  document.getElementById('pairs').textContent='0';
+  document.getElementById('totalPairs').textContent=total;
+  drawGrid();
+}
+function drawGrid(){
+  var g=document.getElementById('grid');
+  var n=cards.length,cols=Math.ceil(Math.sqrt(n));
+  g.style.gridTemplateColumns='repeat('+cols+',70px)';
+  g.innerHTML='';
+  for(var i=0;i<n;i++){
+    var d=document.createElement('div');
+    d.className='card'+(flipped.indexOf(i)>-1||matched.has(i)?' flipped':'')+(matched.has(i)?' matched':'');
+    d.innerHTML='<div class="card-inner"><div class="card-front">'+cards[i]+'</div><div class="card-back">?</div></div>';
+    d.dataset.idx=i;
+    d.onclick=function(){flipCard(+this.dataset.idx,this)};
+    g.appendChild(d);
+  }
+}
+function flipCard(idx,el){
+  if(flipped.length>=2||flipped.indexOf(idx)>-1||matched.has(idx))return;
+  flipped.push(idx);
+  el.classList.add('flipped');
+  if(flipped.length===2){
+    moves++;
+    document.getElementById('moves').textContent=moves;
+    if(cards[flipped[0]]===cards[flipped[1]]){
+      matched.add(flipped[0]);matched.add(flipped[1]);
+      pairCount++;
+      document.getElementById('pairs').textContent=pairCount;
+      flipped=[];
+      drawGrid();
+      if(pairCount===total)setTimeout(function(){alert('恭喜通关！翻牌'+moves+'次');},300);
+    }else{
+      setTimeout(function(){
+        flipped=[];
+        drawGrid();
+      },800);
+    }
+  }
+}
+init();
+</script>
+</body>
+</html>

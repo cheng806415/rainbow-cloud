@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>别踩白块</title>
+<style>
+body{background:#111;display:flex;justify-content:center;align-items:center;height:100vh;margin:0;overflow:hidden}
+#wrap{text-align:center;color:#fff}
+#info{font-size:18px;margin-bottom:10px;color:#aaa}
+canvas{display:block;margin:0 auto;border-radius:8px;background:#fff}
+#over{margin-top:10px;font-size:18px;color:#888}
+</style>
+</head>
+<body>
+<div id="wrap">
+<div id="info">分数: <span id="score">0</span></div>
+<canvas id="c"></canvas>
+<div id="over">点击黑色方块 | 点击开始</div>
+</div>
+<script>
+var canvas=document.getElementById('c'),ctx=canvas.getContext('2d');
+canvas.width=300;canvas.height=500;
+var W=canvas.width,H=canvas.height;
+var cols=4,cw=W/cols,rowH=80;
+var grid=[],score=0,alive=false,speed=2,offset=0;
+
+function initGame(){
+    grid=[];
+    for(var i=0;i<15;i++){
+        grid.push({black:Math.floor(Math.random()*cols),clicked:false});
+    }
+    score=0;speed=2;offset=-rowH;
+    document.getElementById('score').textContent=0;
+}
+
+function update(){
+    offset+=speed;
+    while(offset>=rowH){
+        offset-=rowH;
+        if(!grid[0].clicked){
+            alive=false;
+            document.getElementById('over').textContent='游戏结束！得分: '+score+' 点击重新开始';
+            return;
+        }
+        grid.shift();
+        grid.push({black:Math.floor(Math.random()*cols),clicked:false});
+        speed+=0.01;
+    }
+}
+
+function draw(){
+    ctx.clearRect(0,0,W,H);
+    for(var i=0;i<grid.length;i++){
+        var y=i*rowH+offset;
+        if(y+rowH<0||y>H)continue;
+        var cell=grid[i];
+        for(var c=0;c<cols;c++){
+            if(c===cell.black){
+                ctx.fillStyle=cell.clicked?'#aaa':'#2c3e50';
+            }else{
+                ctx.fillStyle='#fff';
+            }
+            ctx.fillRect(c*cw+1,y+1,cw-2,rowH-2);
+        }
+    }
+}
+
+function loop(){
+    if(!alive){draw();return;}
+    update();draw();
+    requestAnimationFrame(loop);
+}
+
+canvas.addEventListener('click',function(e){
+    if(!alive){
+        initGame();
+        alive=true;
+        document.getElementById('over').textContent='';
+        loop();
+        return;
+    }
+    var rect=canvas.getBoundingClientRect();
+    var mx=(e.clientX-rect.left)*(W/rect.width);
+    var my=(e.clientY-rect.top)*(H/rect.height);
+    var col=Math.floor(mx/cw);
+    for(var i=0;i<grid.length;i++){
+        var y=i*rowH+offset;
+        if(my>=y&&my<y+rowH){
+            if(grid[i].black===col&&!grid[i].clicked){
+                grid[i].clicked=true;
+                score++;
+                document.getElementById('score').textContent=score;
+            }
+            break;
+        }
+    }
+});
+
+initGame();
+draw();
+</script>
+</body>
+</html>

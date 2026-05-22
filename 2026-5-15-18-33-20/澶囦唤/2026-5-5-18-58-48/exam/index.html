@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>倒计时</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#fff;color:#000;font-family:"Microsoft YaHei",sans-serif;min-height:100vh;display:flex;flex-direction:column}
+.header{background:#fff;padding:15px 30px;border-bottom:2px solid #000;display:flex;align-items:center;justify-content:space-between}
+.header h1{font-size:20px;color:#000;letter-spacing:2px}
+.header a{color:#666;text-decoration:none;font-size:14px}
+.header a:hover{color:#000}
+.main{flex:1;display:flex;justify-content:center;align-items:center;padding:40px 20px;position:relative}
+.config-section{border:2px solid #000;padding:30px;max-width:500px;width:100%}
+.config-section h2{border-bottom:2px solid #000;padding-bottom:10px;margin-bottom:25px;font-size:18px;letter-spacing:2px}
+.form-group{margin-bottom:18px;text-align:left}
+.form-group label{display:block;font-size:14px;margin-bottom:6px;font-weight:bold;letter-spacing:1px}
+.form-row{display:flex;gap:10px;align-items:center}
+.form-row>*{flex:1}
+.form-row select,.form-row input[type=number]{width:100%;padding:8px;border:2px solid #000;font-size:14px;outline:none;font-family:"Microsoft YaHei",sans-serif;background:#fff}
+.form-row select:hover{background:#f5f5f5}
+.time-row select{width:80px;padding:10px;font-size:16px;border:2px solid #000;background:#fff;outline:none;font-family:"Microsoft YaHei",sans-serif;text-align:center;cursor:pointer;-webkit-appearance:none;appearance:none}
+.time-row select:hover{background:#f5f5f5}
+.time-row{display:flex;gap:10px;align-items:flex-end;justify-content:center}
+.time-sep{font-size:24px;font-weight:bold;padding-bottom:2px}
+.btn{background:#000;color:#fff;border:none;padding:12px 30px;font-size:16px;cursor:pointer;width:100%;margin-top:10px;letter-spacing:2px;font-family:"Microsoft YaHei",sans-serif}
+.btn:hover{background:#333}
+.btn-outline{background:#fff;color:#000;border:2px solid #000;margin-top:8px}
+.btn-outline:hover{background:#000;color:#fff}
+.btn-sm{padding:8px 16px;font-size:14px;width:auto;letter-spacing:1px}
+.countdown-display{position:absolute;transition:all 0.3s}
+.countdown-time{font-weight:bold;font-family:monospace;letter-spacing:5px}
+.status-badge{display:inline-block;padding:8px 20px;font-size:14px;margin-bottom:20px;letter-spacing:2px;font-weight:bold}
+.status-wait{border:2px solid #000;color:#000}
+.status-live{background:#000;color:#fff}
+.exam-info{font-size:13px;color:#666;margin-bottom:8px}
+.exam-info span{color:#000;font-weight:bold;font-size:14px}
+.examing-timer{font-weight:bold;font-family:monospace}
+.examing-timer.warn{animation:blink 1s infinite}
+.examing-timer.danger{animation:blink 0.5s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
+.back-btn{position:fixed;top:60px;right:20px;background:#fff;color:#000;border:2px solid #000;padding:8px 16px;cursor:pointer;font-size:13px;font-family:"Microsoft YaHei",sans-serif}
+.back-btn:hover{background:#000;color:#fff}
+.settings-toggle{position:fixed;top:60px;right:140px;background:#fff;color:#000;border:2px solid #000;padding:8px 16px;cursor:pointer;font-size:13px;font-family:"Microsoft YaHei",sans-serif}
+.settings-toggle:hover{background:#000;color:#fff}
+.settings-panel{position:fixed;top:100px;right:20px;width:360px;max-height:calc(100vh - 120px);overflow-y:auto;background:#fff;border:2px solid #000;padding:20px;z-index:100;display:none}
+.settings-panel h3{border-bottom:2px solid #000;padding-bottom:8px;margin-bottom:15px;font-size:15px;letter-spacing:1px}
+.settings-panel .sg{margin-bottom:12px}
+.settings-panel .sg label{display:block;font-size:12px;margin-bottom:4px;font-weight:bold;color:#666}
+.settings-panel .sg input[type=number],.settings-panel .sg select{width:100%;padding:6px 8px;border:1px solid #ccc;font-size:13px;outline:none;font-family:"Microsoft YaHei",sans-serif}
+.settings-panel .sg input[type=color]{width:40px;height:28px;border:1px solid #ccc;cursor:pointer}
+.settings-panel .sg .row{display:flex;gap:8px;align-items:center}
+.settings-panel .sg .row>div{flex:1}
+.settings-panel .sg .row label{margin-bottom:2px}
+.settings-panel .sg input[type=checkbox]{margin-right:6px}
+.action-row{display:flex;gap:10px;margin-top:10px}
+.action-row .btn{flex:1}
+.ended-icon{font-size:60px;margin-bottom:15px;font-weight:bold}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>倒计时</h1>
+  <a href="../nav/">功能导航</a>
+</div>
+<div class="main" id="main">
+<div class="config-section" id="config">
+  <h2>设置考试</h2>
+  <div class="form-group">
+    <label>考试开始时间</label>
+    <div class="time-row">
+      <select id="hSelect"></select>
+      <div class="time-sep">:</div>
+      <select id="mSelect"></select>
+    </div>
+  </div>
+  <div class="form-group">
+    <label>考试时长</label>
+    <div class="time-row" style="max-width:160px;margin:0 auto">
+      <select id="dSelect"></select>
+    </div>
+  </div>
+  <button class="btn" onclick="saveConfig()">开始计时</button>
+</div>
+</div>
+<div id="countdownDisplay" class="countdown-display" style="display:none;text-align:center"></div>
+<button class="back-btn" id="backBtn" style="display:none" onclick="showConfig()">设置</button>
+<button class="settings-toggle" id="settingsToggle" style="display:none" onclick="toggleSettings()">高级设置</button>
+<div class="settings-panel" id="settingsPanel">
+  <h3>高级设置</h3>
+  <div class="sg">
+    <label>主倒计时字体大小 (px)</label>
+    <input type="number" id="ss_fontSize" min="20" max="300" value="120" onchange="applySettings()">
+  </div>
+  <div class="sg">
+    <label>主倒计时颜色</label>
+    <input type="color" id="ss_fontColor" value="#000000" onchange="applySettings()">
+  </div>
+  <div class="sg">
+    <label>页面背景颜色</label>
+    <input type="color" id="ss_bgColor" value="#ffffff" onchange="applySettings()">
+  </div>
+  <div class="sg">
+    <label>显示位置</label>
+    <select id="ss_position" onchange="applySettings()">
+      <option value="center">居中</option>
+      <option value="top">顶部</option>
+      <option value="bottom">底部</option>
+      <option value="top-left">左上</option>
+      <option value="top-right">右上</option>
+      <option value="bottom-left">左下</option>
+      <option value="bottom-right">右下</option>
+    </select>
+  </div>
+  <div class="sg">
+    <label>水平偏移 (px)</label>
+    <input type="number" id="ss_offsetX" value="0" onchange="applySettings()">
+  </div>
+  <div class="sg">
+    <label>垂直偏移 (px)</label>
+    <input type="number" id="ss_offsetY" value="0" onchange="applySettings()">
+  </div>
+  <div class="sg">
+    <label>标签文字颜色</label>
+    <input type="color" id="ss_labelColor" value="#666666" onchange="applySettings()">
+  </div>
+  <div class="sg">
+    <label>等待中标签文字</label>
+    <input type="text" id="ss_waitLabel" value="等待考试开始" onchange="applySettings()" style="padding:6px 8px;border:1px solid #ccc;font-size:13px">
+  </div>
+  <div class="sg">
+    <label>考试中标签文字</label>
+    <input type="text" id="ss_liveLabel" value="考试进行中" onchange="applySettings()" style="padding:6px 8px;border:1px solid #ccc;font-size:13px">
+  </div>
+  <div class="sg" style="border-top:1px solid #eee;padding-top:12px;margin-top:8px">
+    <label style="margin-bottom:10px;font-size:13px;color:#333">显示控制</label>
+    <div><input type="checkbox" id="ss_showWait" checked onchange="applySettings()"> 等待中状态显示</div>
+    <div><input type="checkbox" id="ss_showLive" checked onchange="applySettings()"> 考试中状态显示</div>
+    <div><input type="checkbox" id="ss_showTime" checked onchange="applySettings()"> 考试时间显示</div>
+    <div><input type="checkbox" id="ss_showDur" checked onchange="applySettings()"> 考试时长显示</div>
+    <div><input type="checkbox" id="ss_showElapsed" checked onchange="applySettings()"> 已用时显示</div>
+    <div><input type="checkbox" id="ss_showEndTime" onchange="applySettings()"> 结束时间显示</div>
+    <div><input type="checkbox" id="ss_showWarning" checked onchange="applySettings()"> 倒计时警告提示</div>
+  </div>
+  <div class="sg" style="border-top:1px solid #eee;padding-top:12px;margin-top:8px">
+    <label style="margin-bottom:10px;font-size:13px;color:#333">警告提示设置</label>
+    <div class="sg" style="padding-left:8px">
+      <label>剩余多少分钟提示检查答题卡</label>
+      <input type="number" id="ss_checkMin" value="15" min="1" max="60" onchange="applySettings()">
+    </div>
+    <div class="sg" style="padding-left:8px">
+      <label>剩余多少分钟显示考试即将结束</label>
+      <input type="number" id="ss_endingMin" value="5" min="1" max="30" onchange="applySettings()">
+    </div>
+    <div class="sg" style="padding-left:8px">
+      <label>剩余多少秒开始闪烁</label>
+      <input type="number" id="ss_flashSec" value="5" min="1" max="60" onchange="applySettings()">
+    </div>
+    <div class="sg" style="padding-left:8px">
+      <label><input type="checkbox" id="ss_showEndBtn" checked onchange="applySettings()"> 显示提前结束考试按钮</label>
+    </div>
+  </div>
+  <button class="btn btn-sm" style="margin-top:15px" onclick="saveSettings()">保存设置</button>
+  <button class="btn btn-sm btn-outline" style="margin-top:8px" onclick="resetSettings()">恢复默认</button>
+</div>
+<script>
+var timer,examData=null,sD=120;
+var now=new Date();
+var sH=now.getHours(),sM=now.getMinutes();
+
+var defaultSettings={
+    fontSize:120,fontColor:'#000000',bgColor:'#ffffff',position:'center',
+    offsetX:0,offsetY:0,labelColor:'#666666',
+    waitLabel:'等待考试开始',liveLabel:'考试进行中',
+    showWait:true,showLive:true,showTime:true,showDur:true,
+    showElapsed:true,showEndTime:false,showWarning:true,
+    checkMin:15,endingMin:5,flashSec:5,showEndBtn:true
+};
+
+var ui=defaultSettings;
+
+function loadSettings(){
+    var saved=localStorage.getItem('exam_ui');
+    if(saved){try{var p=JSON.parse(saved);ui={...defaultSettings,...p};}catch(e){ui={...defaultSettings};}}
+}
+
+function saveSettingsData(){
+    localStorage.setItem('exam_ui',JSON.stringify(ui));
+}
+
+function applySettingsToFields(){
+    document.getElementById('ss_fontSize').value=ui.fontSize;
+    document.getElementById('ss_fontColor').value=ui.fontColor;
+    document.getElementById('ss_bgColor').value=ui.bgColor;
+    document.getElementById('ss_position').value=ui.position;
+    document.getElementById('ss_offsetX').value=ui.offsetX;
+    document.getElementById('ss_offsetY').value=ui.offsetY;
+    document.getElementById('ss_labelColor').value=ui.labelColor;
+    document.getElementById('ss_waitLabel').value=ui.waitLabel;
+    document.getElementById('ss_liveLabel').value=ui.liveLabel;
+    document.getElementById('ss_showWait').checked=ui.showWait;
+    document.getElementById('ss_showLive').checked=ui.showLive;
+    document.getElementById('ss_showTime').checked=ui.showTime;
+    document.getElementById('ss_showDur').checked=ui.showDur;
+    document.getElementById('ss_showElapsed').checked=ui.showElapsed;
+    document.getElementById('ss_showEndTime').checked=ui.showEndTime;
+    document.getElementById('ss_showWarning').checked=ui.showWarning;
+    document.getElementById('ss_checkMin').value=ui.checkMin;
+    document.getElementById('ss_endingMin').value=ui.endingMin;
+    document.getElementById('ss_flashSec').value=ui.flashSec;
+    document.getElementById('ss_showEndBtn').checked=ui.showEndBtn;
+}
+
+function applySettings(){
+    ui.fontSize=parseInt(document.getElementById('ss_fontSize').value)||120;
+    ui.fontColor=document.getElementById('ss_fontColor').value;
+    ui.bgColor=document.getElementById('ss_bgColor').value;
+    ui.position=document.getElementById('ss_position').value;
+    ui.offsetX=parseInt(document.getElementById('ss_offsetX').value)||0;
+    ui.offsetY=parseInt(document.getElementById('ss_offsetY').value)||0;
+    ui.labelColor=document.getElementById('ss_labelColor').value;
+    ui.waitLabel=document.getElementById('ss_waitLabel').value;
+    ui.liveLabel=document.getElementById('ss_liveLabel').value;
+    ui.showWait=document.getElementById('ss_showWait').checked;
+    ui.showLive=document.getElementById('ss_showLive').checked;
+    ui.showTime=document.getElementById('ss_showTime').checked;
+    ui.showDur=document.getElementById('ss_showDur').checked;
+    ui.showElapsed=document.getElementById('ss_showElapsed').checked;
+    ui.showEndTime=document.getElementById('ss_showEndTime').checked;
+    ui.showWarning=document.getElementById('ss_showWarning').checked;
+    ui.checkMin=parseInt(document.getElementById('ss_checkMin').value)||15;
+    ui.endingMin=parseInt(document.getElementById('ss_endingMin').value)||5;
+    ui.flashSec=parseInt(document.getElementById('ss_flashSec').value)||5;
+    ui.showEndBtn=document.getElementById('ss_showEndBtn').checked;
+    
+    document.body.style.backgroundColor=ui.bgColor;
+    var cd=document.getElementById('countdownDisplay');
+    var style=getPositionStyle();
+    cd.style.left=style.left;cd.style.right=style.right;cd.style.top=style.top;cd.style.bottom=style.bottom;
+    cd.style.transform=style.transform;
+    if(examData)updateTimer();
+}
+
+function getPositionStyle(){
+    var x=ui.offsetX,y=ui.offsetY;
+    switch(ui.position){
+        case 'center':return{left:'50%',top:'50%',right:'auto',bottom:'auto',transform:'translate(calc(-50% + '+x+'px),calc(-50% + '+y+'px))'};
+        case 'top':return{left:'50%',top:(20+y)+'px',right:'auto',bottom:'auto',transform:'translateX(-50%)'};
+        case 'bottom':return{left:'50%',top:'auto',right:'auto',bottom:(20+y)+'px',transform:'translateX(-50%)'};
+        case 'top-left':return{left:(20+x)+'px',top:(20+y)+'px',right:'auto',bottom:'auto',transform:'none'};
+        case 'top-right':return{left:'auto',top:(20+y)+'px',right:(20+x)+'px',bottom:'auto',transform:'none'};
+        case 'bottom-left':return{left:(20+x)+'px',top:'auto',right:'auto',bottom:(20+y)+'px',transform:'none'};
+        case 'bottom-right':return{left:'auto',top:'auto',right:(20+x)+'px',bottom:(20+y)+'px',transform:'none'};
+    }
+    return{left:'50%',top:'50%',right:'auto',bottom:'auto',transform:'translate(-50%,-50%)'};
+}
+
+function saveSettings(){saveSettingsData();alert('设置已保存');}
+
+function resetSettings(){
+    ui={...defaultSettings};
+    saveSettingsData();
+    applySettingsToFields();
+    applySettings();
+}
+
+function toggleSettings(){
+    var p=document.getElementById('settingsPanel');
+    p.style.display=p.style.display==='block'?'none':'block';
+}
+
+function buildSelect(id,max,init){
+    var el=document.getElementById(id);
+    el.innerHTML='';
+    for(var i=0;i<=max;i++){
+        var o=document.createElement('option');
+        o.value=i;
+        o.textContent=i<10?'0'+i:''+i;
+        if(i===init)o.selected=true;
+        el.appendChild(o);
+    }
+}
+
+function readSelects(){
+    sH=parseInt(document.getElementById('hSelect').value);
+    sM=parseInt(document.getElementById('mSelect').value);
+    sD=parseInt(document.getElementById('dSelect').value);
+}
+
+function initSelects(){
+    buildSelect('hSelect',23,sH);
+    buildSelect('mSelect',59,sM);
+    buildSelect('dSelect',180,sD);
+}
+
+function calcStart(){
+    var now=new Date();
+    var target=new Date(now.getFullYear(),now.getMonth(),now.getDate(),sH,sM,0,0);
+    if(target.getTime()<=now.getTime()){
+        target.setDate(target.getDate()+1);
+    }
+    return target.getTime();
+}
+
+function saveConfig(){
+    readSelects();
+    var start=calcStart();
+    var durMs=sD*60000;
+    if(durMs<=0){alert('请设置有效的考试时长');return;}
+    examData={start:start,end:start+durMs,totalMin:sD,hour:sH,min:sM};
+    localStorage.setItem('exam',JSON.stringify(examData));
+    showCountdown();
+}
+
+function deleteConfig(){
+    if(!confirm('确定要删除本次考试设置吗？'))return;
+    localStorage.removeItem('exam');
+    examData=null;
+    if(timer)clearInterval(timer);
+    document.getElementById('countdownDisplay').style.display='none';
+    showConfig();
+}
+
+function endExamEarly(){
+    if(!confirm('确定要提前结束考试吗？'))return;
+    if(timer)clearInterval(timer);
+    examData.end=Date.now();
+    updateTimer();
+}
+
+function showConfig(){
+    if(timer)clearInterval(timer);
+    document.getElementById('config').style.display='block';
+    document.getElementById('countdownDisplay').style.display='none';
+    document.getElementById('countdownDisplay').innerHTML='';
+    document.getElementById('backBtn').style.display='none';
+    document.getElementById('settingsToggle').style.display='none';
+    document.getElementById('settingsPanel').style.display='none';
+    initSelects();
+}
+
+function showCountdown(){
+    document.getElementById('config').style.display='none';
+    document.getElementById('countdownDisplay').style.display='block';
+    document.getElementById('backBtn').style.display='block';
+    document.getElementById('settingsToggle').style.display='block';
+    document.body.style.backgroundColor=ui.bgColor;
+    applySettingsToFields();
+    applySettings();
+    if(timer)clearInterval(timer);
+    updateTimer();
+    timer=setInterval(updateTimer,1000);
+}
+
+function pad(n){return n<10?'0'+n:n}
+
+function updateTimer(){
+    if(!examData)return;
+    var now=Date.now(),diff=examData.start-now;
+    var cd=document.getElementById('countdownDisplay');
+    var style=getPositionStyle();
+    var html='<div style="text-align:center">';
+    
+    if(diff>0){
+        var h=Math.floor(diff/3600000),m=Math.floor((diff%3600000)/60000),s=Math.floor((diff%60000)/1000);
+        var timeStr=pad(examData.hour)+':'+pad(examData.min);
+        if(ui.showWait)html+='<div class="status-badge status-wait">'+ui.waitLabel+'</div>';
+        html+='<div class="countdown-time" style="font-size:'+ui.fontSize+'px;color:'+ui.fontColor+'">'+pad(h)+':'+pad(m)+':'+pad(s)+'</div>';
+        var info='';
+        if(ui.showTime)info+='<div class="exam-info" style="color:'+ui.labelColor+'">考试时间 <span style="color:'+ui.fontColor+'">'+timeStr+'</span></div>';
+        if(ui.showDur)info+='<div class="exam-info" style="color:'+ui.labelColor+'">考试时长 <span style="color:'+ui.fontColor+'">'+examData.totalMin+' 分钟</span></div>';
+        if(info)html+='<div>'+info+'</div>';
+    }else if(now<examData.end){
+        var remain=examData.end-now;
+        var rh=Math.floor(remain/3600000),rm=Math.floor((remain%3600000)/60000),rs=Math.floor((remain%60000)/1000);
+        var elapsed=Math.round((now-examData.start)/60000);
+        var remainSec=Math.round(remain/1000);
+        var wt='';
+        if(remainSec<=ui.flashSec){
+            wt='考试即将结束！';
+        }else if(Math.round(remain/60000)<=ui.endingMin){
+            wt='考试即将结束！';
+        }else if(Math.round(remain/60000)<=ui.checkMin){
+            wt='还剩'+Math.ceil(remain/60000)+'分钟，请检查是否已将答题内容涂到答题卡上！';
+        }
+        if(ui.showLive)html+='<div class="status-badge status-live">'+ui.liveLabel+'</div>';
+        var timerColor=ui.fontColor;
+        var timerExtra='';
+        if(remainSec<=ui.flashSec){
+            timerColor='#f85149';
+            timerExtra=';animation:blink 0.5s infinite';
+        }
+        var timerStyle='font-size:'+ui.fontSize+'px;color:'+timerColor+timerExtra;
+        html+='<div class="examing-timer" style="'+timerStyle+'">'+pad(rh)+':'+pad(rm)+':'+pad(rs)+'</div>';
+        var inProgress=examData&&Date.now()>=examData.start&&Date.now()<examData.end;
+        if(inProgress&&ui.showEndBtn){
+            html+='<div style="margin-top:20px"><button class="btn" style="background:#c00;max-width:250px;margin:0 auto" onclick="endExamEarly()">提前结束考试</button></div>';
+        }
+        if(wt&&ui.showWarning)html+='<div style="margin-top:10px;font-size:18px;font-weight:bold;color:'+ui.fontColor+'">'+wt+'</div>';
+        var info='';
+        if(ui.showElapsed)info+='<div class="exam-info" style="color:'+ui.labelColor+'">已用时 <span style="color:'+ui.fontColor+'">'+elapsed+' 分钟</span></div>';
+        if(ui.showDur)info+='<div class="exam-info" style="color:'+ui.labelColor+'">考试时长 <span style="color:'+ui.fontColor+'">'+examData.totalMin+' 分钟</span></div>';
+        if(ui.showEndTime)info+='<div class="exam-info" style="color:'+ui.labelColor+'">结束时间 <span style="color:'+ui.fontColor+'">'+new Date(examData.end).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})+'</span></div>';
+        if(info)html+='<div style="margin-top:8px">'+info+'</div>';
+    }else{
+        html+='<div style="font-size:24px;font-weight:bold;color:'+ui.fontColor+';margin-bottom:15px">考试已结束</div>';
+        if(ui.showDur)html+='<div class="exam-info" style="color:'+ui.labelColor+'">考试时长 <span style="color:'+ui.fontColor+'">'+examData.totalMin+' 分钟</span></div>';
+        html+='<div class="action-row" style="max-width:400px;width:90%;margin:20px auto 0">'+
+            '<button class="btn" onclick="deleteConfig()">删除考试</button>'+
+            '<button class="btn btn-outline" onclick="showConfig()">重新设置</button>'+
+        '</div>';
+    }
+    html+='</div>';
+    cd.innerHTML=html;
+}
+
+function loadConfig(){
+    var saved=localStorage.getItem('exam');
+    if(saved){
+        examData=JSON.parse(saved);
+        showCountdown();
+    }
+}
+
+loadSettings();
+initSelects();
+loadConfig();
+</script>
+</body>
+</html>

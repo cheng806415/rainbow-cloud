@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>反应力测试</title>
+<style>
+body { background: #16213e; color: #eee; font-family: "Microsoft YaHei",sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px 0; }
+.box { background: #0f3460; border-radius: 15px; padding: 40px; text-align: center; width: 400px; }
+h2 { color: #e94560; margin-bottom: 10px; }
+#area { width: 260px; height: 200px; margin: 15px auto; border-radius: 15px; cursor: pointer; display: flex; justify-content: center; align-items: center; font-size: 22px; font-weight: bold; transition: background 0.3s; }
+#area.waiting { background: #333; color: #888; }
+#area.red { background: #c0392b; color: #fff; }
+#area.green { background: #27ae60; color: #fff; }
+#result { min-height: 80px; margin: 10px 0; }
+#result .ms { font-size: 36px; font-weight: bold; color: #fff; }
+#result .level { font-size: 20px; margin-top: 5px; }
+#result .icon { font-size: 40px; margin-bottom: 5px; }
+.info { font-size: 13px; color: #666; margin-top: 15px; }
+.tips { font-size: 14px; color: #888; margin-top: 15px; padding: 15px; background: #16213e; border-radius: 10px; }
+.tips table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.tips th, .tips td { padding: 6px 8px; text-align: center; border-bottom: 1px solid #0f3460; }
+.tips th { color: #e94560; font-size: 12px; }
+.tips .l0 { color: #e74c3c; }
+.tips .l1 { color: #e67e22; }
+.tips .l2 { color: #f39c12; }
+.tips .l3 { color: #f1c40f; }
+.tips .l4 { color: #2ecc71; }
+.tips .l5 { color: #1abc9c; }
+.tips .l6 { color: #3498db; }
+.tips .l7 { color: #9b59b6; }
+.tips .l8 { color: #e91e63; }
+#history { margin-top: 10px; font-size: 12px; color: #666; }
+#history span { display: inline-block; background: #16213e; padding: 3px 8px; border-radius: 5px; margin: 2px; }
+</style>
+</head>
+<body>
+<div class="box">
+<h2>反应力测试</h2>
+<div id="area" class="waiting">点击开始</div>
+<div id="result"></div>
+<div id="history"></div>
+<div class="tips">
+<table>
+<tr><th>范围</th><th>等级</th><th>评价</th></tr>
+<tr><td>0-150ms</td><td class="l0">SSS</td><td class="l0">人类极限</td></tr>
+<tr><td>151-200ms</td><td class="l1">SS</td><td class="l1">电竞选手</td></tr>
+<tr><td>201-250ms</td><td class="l2">S</td><td class="l2">顶尖水平</td></tr>
+<tr><td>251-300ms</td><td class="l3">A</td><td class="l3">优秀水平</td></tr>
+<tr><td>301-350ms</td><td class="l4">B</td><td class="l4">良好水平</td></tr>
+<tr><td>351-400ms</td><td class="l5">C</td><td class="l5">平均水平</td></tr>
+<tr><td>401-500ms</td><td class="l6">D</td><td class="l6">稍慢水平</td></tr>
+<tr><td>501-600ms</td><td class="l7">E</td><td class="l7">较慢水平</td></tr>
+<tr><td>601ms+</td><td class="l8">F</td><td class="l8">反应迟缓</td></tr>
+</table>
+</div>
+<div class="info">规则：变红后等待变绿，变绿后立即点击</div>
+</div>
+<script>
+var area=document.getElementById('area');
+var result=document.getElementById('result');
+var history=document.getElementById('history');
+var state='idle';
+var startTime,timeout1;
+var records=[];
+
+function getLevel(ms){
+    if(ms<=150) return {grade:'SSS',color:'#e74c3c',icon:'◆',label:'人类极限！你的反应突破了人类极限！'};
+    if(ms<=200) return {grade:'SS',color:'#e67e22',icon:'◆',label:'电竞选手！职业级反应速度！'};
+    if(ms<=250) return {grade:'S',color:'#f39c12',icon:'◆',label:'顶尖水平！万里挑一！'};
+    if(ms<=300) return {grade:'A',color:'#f1c40f',icon:'◆',label:'优秀水平！远超普通人！'};
+    if(ms<=350) return {grade:'B',color:'#2ecc71',icon:'◆',label:'良好水平！比多数人快！'};
+    if(ms<=400) return {grade:'C',color:'#1abc9c',icon:'◆',label:'平均水平！正常人类反应！'};
+    if(ms<=500) return {grade:'D',color:'#3498db',icon:'◆',label:'稍慢水平！注意力不太集中？'};
+    if(ms<=600) return {grade:'E',color:'#9b59b6',icon:'◆',label:'较慢水平！是不是该休息一下了？'};
+    return {grade:'F',color:'#e91e63',icon:'◆',label:'反应迟缓！你该好好锻炼了！'};
+}
+
+area.addEventListener('click',function(){
+    if(state==='idle'){
+        result.innerHTML='';
+        state='red';
+        area.className='red';
+        area.textContent='等待变绿...';
+        var delay=1000+Math.random()*3000;
+        timeout1=setTimeout(function(){
+            state='green';
+            area.className='green';
+            area.textContent='点！';
+            startTime=Date.now();
+        },delay);
+    }else if(state==='green'){
+        var ms=Date.now()-startTime;
+        var lvl=getLevel(ms);
+        records.push(ms);
+        if(records.length>10)records.shift();
+        var h='<div class="icon">'+lvl.icon+'</div><div class="ms" style="color:'+lvl.color+'">'+ms+'ms</div><div class="level" style="color:'+lvl.color+'">'+lvl.grade+' - '+lvl.label+'</div>';
+        result.innerHTML=h;
+        var spans='';
+        records.forEach(function(r){
+            var l=getLevel(r);
+            spans+='<span style="color:'+l.color+'">'+r+'ms</span>';
+        });
+        history.innerHTML='最近记录: '+spans;
+        state='idle';
+        area.className='waiting';
+        area.textContent='再来一次';
+    }else if(state==='red'){
+        clearTimeout(timeout1);
+        result.innerHTML='<div class="icon" style="font-size:36px">!</div><div style="color:#c0392b;font-size:18px">太心急了！要等变绿才能点</div>';
+        state='idle';
+        area.className='waiting';
+        area.textContent='再来一次';
+    }
+});
+</script>
+</body>
+</html>

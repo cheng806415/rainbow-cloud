@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>接方块</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#1a1a2e;color:#eee;font-family:"Microsoft YaHei",sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;user-select:none}
+h1{font-size:22px;margin-bottom:8px;color:#e67e22}
+#info{font-size:14px;color:#888;margin-bottom:12px}
+canvas{background:#16213e;border:2px solid #0f3460;border-radius:4px;display:block}
+#msg{font-size:14px;color:#aaa;margin-top:10px;text-align:center}
+#back{position:fixed;top:15px;left:15px;color:#aaa;text-decoration:none;font-size:14px}
+#back:hover{color:#fff}
+</style>
+</head>
+<body>
+<a href="index.html" id="back">返回游戏列表</a>
+<h1>接方块</h1>
+<div id="info">分数: <span id="score">0</span> | 漏3个结束</div>
+<canvas id="canvas" width="600" height="500"></canvas>
+<div id="msg">鼠标移动 | 点击开始</div>
+<script>
+var c=document.getElementById('canvas'),x=c.getContext('2d'),W=c.width,H=c.height,scoreEl=document.getElementById('score'),msg=document.getElementById('msg');
+var bucket={w:80,h:12,y:H-20,x:W/2-40};
+var items=[],score=0,missed=0,running=false,spawnT=0,frame=0;
+var colors=['#e74c3c','#e67e22','#f1c40f','#2ecc71','#3498db','#9b59b6'];
+function update(){
+if(!running){draw();return}
+frame++;spawnT++;
+if(spawnT>40){spawnT=0;items.push({x:Math.random()*(W-30)+15,y:-20,w:20,h:20,spd:2+Math.random()*2,color:colors[Math.floor(Math.random()*colors.length)]})}
+items.forEach(function(i){i.y+=i.spd});
+for(var i=items.length-1;i>=0;i--){var it=items[i];if(it.y+it.h>bucket.y&&it.x+it.w>bucket.x&&it.x<bucket.x+bucket.w){items.splice(i,1);score++;scoreEl.textContent=score}}
+items=items.filter(function(it){if(it.y>H){missed++;if(missed>=3){running=false;msg.textContent='游戏结束！得分: '+score;missed=0}return false}return true});
+draw();requestAnimationFrame(update)}
+function draw(){x.clearRect(0,0,W,H);
+x.fillStyle='#8e44ad';x.fillRect(bucket.x,bucket.y,bucket.w,bucket.h);
+items.forEach(function(i){x.fillStyle=i.color;x.fillRect(i.x,i.y,i.w,i.h)});
+x.fillStyle='#aaa';x.font='14px sans-serif';x.fillText('漏掉: '+missed+'/3',10,20)}
+c.addEventListener('mousemove',function(e){var r=c.getBoundingClientRect();bucket.x=e.clientX-r.left-bucket.w/2;if(bucket.x<0)bucket.x=0;if(bucket.x+bucket.w>W)bucket.x=W-bucket.w});
+c.addEventListener('click',function(){if(!running){score=0;missed=0;items=[];scoreEl.textContent=0;running=true;msg.textContent=''}});
+draw();
+</script>
+</body>
+</html>

@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>俄罗斯方块</title>
+<style>
+body{background:#111;color:#eee;font-family:"Microsoft YaHei",sans-serif;display:flex;justify-content:center;align-items:center;height:100vh;margin:0}
+#wrap{display:flex;gap:20px;align-items:flex-start}
+canvas{display:block;border:2px solid #333}
+#info{padding:10px}
+#info h3{color:#e74c3c;margin-bottom:10px}
+#next{width:100px;height:100px;background:#000;border:1px solid #333;margin-bottom:15px}
+#score{font-size:20px;color:#e74c3c}
+#controls{margin-top:15px;font-size:12px;color:#666;line-height:1.8}
+</style>
+</head>
+<body>
+<div id="wrap">
+<canvas id="c"></canvas>
+<div id="info">
+  <h3>下一个</h3>
+  <canvas id="next" width="100" height="100"></canvas>
+  <div id="score">0</div>
+  <div id="controls">← → 移动<br>↓ 加速<br>↑ 旋转<br>空格 直落</div>
+</div>
+</div>
+<script>
+var canvas=document.getElementById('c'),ctx=canvas.getContext('2d');
+var R=25,COLS=10,ROWS=20;
+canvas.width=COLS*R;canvas.height=ROWS*R;
+var grid,nextPiece,cur,curX,curY,score,gameOver;
+var pieces=[
+  [[1,1,1,1]],
+  [[1,1],[1,1]],
+  [[0,1,0],[1,1,1]],
+  [[1,0,0],[1,1,1]],
+  [[0,0,1],[1,1,1]],
+  [[0,1,1],[1,1,0]],
+  [[1,1,0],[0,1,1]]
+];
+var colors=['#3498db','#f1c40f','#9b59b6','#e67e22','#3498db','#2ecc71','#e74c3c'];
+
+function init(){
+  grid=[];for(var i=0;i<ROWS;i++){grid[i]=[];for(var j=0;j<COLS;j++)grid[i][j]=0;}
+  score=0;gameOver=false;
+  document.getElementById('score').textContent='0';
+  spawnPiece();
+  loop();
+}
+
+function spawnPiece(){
+  var pi=Math.floor(Math.random()*pieces.length);
+  cur=pieces[pi].map(function(r){return r.slice()});
+  cur.color=colors[pi];
+  curX=Math.floor((COLS-cur[0].length)/2);
+  curY=0;
+  nextPiece=pieces[Math.floor(Math.random()*pieces.length)];
+  nextPiece.color=colors[Math.floor(Math.random()*colors.length)];
+  drawNext();
+  if(!canPlace(cur,curX,curY)){gameOver=true;setTimeout(function(){alert('游戏结束！得分: '+score);},100);}
+}
+
+function canPiece(p,px,py){
+  for(var r=0;r<p.length;r++)for(var c=0;c<p[r].length;c++){
+    if(!p[r][c])continue;
+    var nx=px+c,ny=py+r;
+    if(nx<0||nx>=COLS||ny>=ROWS)return false;
+    if(ny>=0&&grid[ny][nx])return false;
+  }
+  return true;
+}
+
+function place(){
+  for(var r=0;r<cur.length;r++)for(var c=0;c<cur[r].length;c++){
+    if(!cur[r][c])continue;
+    var y=curY+r,x=curX+c;
+    if(y<0){gameOver=true;return;}
+    grid[y][x]=cur.color;
+  }
+  clearLines();
+  spawnPiece();
+}
+
+function clearLines(){
+  var cleared=0;
+  for(var r=ROWS-1;r>=0;r--){
+    if(grid[r].every(function(c){return c;})){
+      grid.splice(r,1);
+      var row=[];for(var j=0;j<COLS;j++)row.push(0);
+      grid.unshift(row);
+      cleared++;r++;
+    }
+  }
+  if(cleared>0){
+    var pts=[0,100,300,500,800];
+    score+=(pts[cleared]||800);
+    document.getElementById('score').textContent=score;
+  }
+}
+
+function rotate(){
+  var n=cur.length,m=cur[0].length;
+  var rot=[];
+  for(var c=0;c<m;c++){rot[c]=[];for(var r=n-1;r>=0;r--)rot[c].push(cur[r][c]);}
+  if(canPlace(rot,curX,curY))cur=rot;
+}
+
+function loop(){
+  if(gameOver)return;
+  if(canPlace(cur,curX,curY+1)){curY++;}
+  else{place();}
+  draw();
+  setTimeout(loop,400);
+}
+
+function draw(){
+  ctx.fillStyle='#000';
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+  for(var r=0;r<ROWS;r++)for(var c=0;c<COLS;c++){
+    if(grid[r][c]){ctx.fillStyle=grid[r][c];ctx.fillRect(c*R+1,r*R+1,R-2,R-2);}
+    ctx.strokeStyle='#222';ctx.strokeRect(c*R,r*R,R,R);
+  }
+  for(var r=0;r<cur.length;r++)for(var c=0;c<cur[r].length;c++){
+    if(!cur[r][c])continue;
+    ctx.fillStyle=cur.color;
+    ctx.fillRect((curX+c)*R+1,(curY+r)*R+1,R-2,R-2);
+  }
+}
+
+function drawNext(){
+  var nc=document.getElementById('next'),nctx=nc.getContext('2d');
+  nctx.fillStyle='#000';nctx.fillRect(0,0,100,100);
+  var pr=20;
+  var offX=(100-nextPiece[0].length*pr)/2,offY=(100-nextPiece.length*pr)/2;
+  for(var r=0;r<nextPiece.length;r++)for(var c=0;c<nextPiece[r].length;c++){
+    if(!nextPiece[r][c])continue;
+    nctx.fillStyle=nextPiece.color;
+    nctx.fillRect(offX+c*pr+1,offY+r*pr+1,pr-2,pr-2);
+  }
+}
+
+document.addEventListener('keydown',function(e){
+  if(gameOver)return;
+  if(e.key==='ArrowLeft'&&canPlace(cur,curX-1,curY))curX--;
+  else if(e.key==='ArrowRight'&&canPlace(cur,curX+1,curY))curX++;
+  else if(e.key==='ArrowDown'&&canPlace(cur,curX,curY+1))curY++;
+  else if(e.key==='ArrowUp')rotate();
+  else if(e.key===' '){while(canPlace(cur,curX,curY+1))curY++;place();}
+  e.preventDefault();
+  draw();
+});
+
+init();
+</script>
+</body>
+</html>

@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>猜数字</title>
+<style>
+body { background: #16213e; color: #eee; font-family: "Microsoft YaHei",sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+.box { background: #0f3460; border-radius: 15px; padding: 40px; text-align: center; width: 360px; }
+h2 { color: #e94560; margin-bottom: 20px; }
+input { width: 200px; padding: 12px; font-size: 20px; border: none; border-radius: 8px; text-align: center; outline: none; }
+button { display: block; width: 228px; margin: 15px auto 0; padding: 12px; font-size: 18px; background: #e94560; color: #fff; border: none; border-radius: 8px; cursor: pointer; }
+button:hover { background: #c73e54; }
+.msg { margin-top: 20px; font-size: 18px; min-height: 30px; }
+.tips { margin-top: 10px; font-size: 13px; color: #888; }
+</style>
+</head>
+<body>
+<div class="box">
+<h2>猜数字游戏</h2>
+<p>系统已想到 1~100 之间的一个整数</p>
+<input type="number" id="guess" min="1" max="100" placeholder="输入1-100">
+<button onclick="doGuess()">猜</button>
+<div class="msg" id="msg"></div>
+<div class="tips" id="tips">已猜次数: 0</div>
+</div>
+<script>
+var answer=Math.floor(Math.random()*100)+1;
+var count=0;
+function doGuess(){
+    var inp=document.getElementById('guess');
+    var v=parseInt(inp.value);
+    var msg=document.getElementById('msg');
+    if(isNaN(v)||v<1||v>100){msg.textContent='请输入1-100之间的数字';return;}
+    count++;
+    document.getElementById('tips').textContent='已猜次数: '+count;
+    if(v===answer){
+        msg.textContent='正确！答案是 '+answer;
+        msg.style.color='#0f0';
+        setTimeout(function(){answer=Math.floor(Math.random()*100)+1;count=0;msg.textContent='';msg.style.color='#eee';document.getElementById('tips').textContent='已猜次数: 0';inp.value='';},2000);
+    }else if(v<answer){
+        msg.textContent=v+' 太小了，再大一点';
+        msg.style.color='#ff0';
+    }else{
+        msg.textContent=v+' 太大了，再小一点';
+        msg.style.color='#f80';
+    }
+    inp.value='';
+    inp.focus();
+}
+document.getElementById('guess').addEventListener('keydown',function(e){if(e.key==='Enter')doGuess();});
+</script>
+</body>
+</html>

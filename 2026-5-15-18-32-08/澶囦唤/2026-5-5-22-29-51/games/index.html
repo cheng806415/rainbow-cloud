@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>聚合小游戏</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: "Microsoft YaHei", Arial, sans-serif; background: #1a1a2e; color: #eee; min-height: 100vh; }
+.header { background: #16213e; padding: 15px 30px; border-bottom: 2px solid #0f3460; }
+.header h1 { font-size: 22px; color: #e94560; display: inline-block; }
+.header a { float: right; color: #aaa; text-decoration: none; font-size: 14px; margin-top: 5px; }
+.header a:hover { color: #fff; }
+.container { max-width: 900px; margin: 30px auto; padding: 0 15px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 20px; }
+.game-card { background: #16213e; border-radius: 10px; overflow: hidden; cursor: pointer; border: 2px solid #0f3460; text-decoration: none; color: inherit; display: block; transition: transform 0.2s, border-color 0.2s; }
+.game-card:hover { transform: translateY(-5px); border-color: #e94560; }
+.game-icon { height: 160px; display: flex; align-items: center; justify-content: center; font-size: 64px; }
+.game-icon.snake { background: linear-gradient(135deg,#27ae60,#2ecc71); }
+.game-icon.number { background: linear-gradient(135deg,#2980b9,#3498db); }
+.game-icon.hit { background: linear-gradient(135deg,#8e44ad,#9b59b6); }
+.game-icon.t2048 { background: linear-gradient(135deg,#e67e22,#f39c12); }
+.game-icon.puzzle { background: linear-gradient(135deg,#c0392b,#e74c3c); }
+.game-icon.flappy { background: linear-gradient(135deg,#16a085,#1abc9c); }
+.game-icon.mines { background: linear-gradient(135deg,#555,#777); }
+.game-icon.mem { background: linear-gradient(135deg,#e74c3c,#c0392b); }
+.game-icon.ttt { background: linear-gradient(135deg,#2c3e50,#34495e); }
+.game-icon.tetris { background: linear-gradient(135deg,#8e44ad,#3498db); }
+.game-icon.breakout { background: linear-gradient(135deg,#e74c3c,#f39c12); }
+.game-icon.whack { background: linear-gradient(135deg,#8B4513,#CD853F); }
+.game-icon.simon { background: linear-gradient(135deg,#9b59b6,#3498db); }
+.game-icon.pong { background: linear-gradient(135deg,#1abc9c,#16a085); }
+.game-icon.space { background: linear-gradient(135deg,#0a0a2e,#3498db); }
+.game-icon.blackjack { background: linear-gradient(135deg,#0d2818,#27ae60); }
+.game-icon.marble { background: linear-gradient(135deg,#f39c12,#e67e22); }
+.game-icon.pinball { background: linear-gradient(135deg,#e74c3c,#e67e22); }
+.game-icon.catch { background: linear-gradient(135deg,#e67e22,#f1c40f); }
+.game-icon.dontstep { background: linear-gradient(135deg,#2c3e50,#95a5a6); }
+.game-info { padding: 15px; }
+.game-info h3 { font-size: 16px; margin-bottom: 6px; color: #e94560; }
+.game-info p { font-size: 12px; color: #888; line-height: 1.5; }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>聚合小游戏</h1>
+  <a href="../nav/">功能导航</a> &nbsp; <a href="../index.php">返回网盘</a>
+</div>
+<div class="container">
+<div class="grid">
+
+<a class="game-card" href="snake.html">
+  <div class="game-icon snake">S</div>
+  <div class="game-info"><h3>贪吃蛇</h3><p>方向键/WASD控制，吃食物变长</p></div>
+</a>
+
+<a class="game-card" href="number.html">
+  <div class="game-icon number">#</div>
+  <div class="game-info"><h3>猜数字</h3><p>系统随机生成1-100数字，输入猜测后提示太大或太小</p></div>
+</a>
+
+<a class="game-card" href="hit.html">
+  <div class="game-icon hit">Z</div>
+  <div class="game-info"><h3>反应力测试</h3><p>屏幕变绿后尽快点击，测试你的反应速度（毫秒）</p></div>
+</a>
+
+<a class="game-card" href="2048.html">
+  <div class="game-icon t2048">4</div>
+  <div class="game-info"><h3>2048</h3><p>滑动方向键合并相同数字，凑出2048算胜利</p></div>
+</a>
+
+<a class="game-card" href="puzzle.html">
+  <div class="game-icon puzzle">P</div>
+  <div class="game-info"><h3>数字华容道</h3><p>滑动方块将数字1-15按顺序排列</p></div>
+</a>
+
+<a class="game-card" href="flappy.html">
+  <div class="game-icon flappy">F</div>
+  <div class="game-info"><h3>Flappy 方块</h3><p>点击让方块飞起穿越障碍，看你能飞多远</p></div>
+</a>
+
+<a class="game-card" href="minesweeper.html">
+  <div class="game-icon mines">M</div>
+  <div class="game-info"><h3>扫雷</h3><p>左键翻开格子，右键插旗，避开所有地雷</p></div>
+</a>
+
+<a class="game-card" href="memory.html">
+  <div class="game-icon mem">C</div>
+  <div class="game-info"><h3>记忆翻牌</h3><p>翻开两张相同的牌即可消除，考验记忆力</p></div>
+</a>
+
+<a class="game-card" href="tictactoe.html">
+  <div class="game-icon ttt">X</div>
+  <div class="game-info"><h3>井字棋</h3><p>三子连线即可获胜，挑战AI对手</p></div>
+</a>
+
+<a class="game-card" href="tetris.html">
+  <div class="game-icon tetris">T</div>
+  <div class="game-info"><h3>俄罗斯方块</h3><p>旋转移动堆叠方块，消除完整行得分</p></div>
+</a>
+
+<a class="game-card" href="breakout.html">
+  <div class="game-icon breakout">B</div>
+  <div class="game-info"><h3>打砖块</h3><p>鼠标控制挡板，弹球消除所有砖块</p></div>
+</a>
+
+<a class="game-card" href="whackamole.html">
+  <div class="game-icon whack">O</div>
+  <div class="game-info"><h3>打地鼠</h3><p>30秒内尽可能多点击冒出来的地鼠</p></div>
+</a>
+
+<a class="game-card" href="simon.html">
+  <div class="game-icon simon">C</div>
+  <div class="game-info"><h3>颜色记忆</h3><p>记住颜色序列并重复，考验记忆力</p></div>
+</a>
+
+<a class="game-card" href="pong.html">
+  <div class="game-icon pong">P</div>
+  <div class="game-info"><h3>乒乓球</h3><p>鼠标控制挡板，与电脑对战</p></div>
+</a>
+
+<a class="game-card" href="space.html">
+  <div class="game-icon space">R</div>
+  <div class="game-info"><h3>太空射击</h3><p>方向键移动，空格射击，消灭外星飞船</p></div>
+</a>
+
+<a class="game-card" href="blackjack.html">
+  <div class="game-icon blackjack">21</div>
+  <div class="game-info"><h3>21点</h3><p>经典扑克游戏，接近21点但不爆牌</p></div>
+</a>
+
+<a class="game-card" href="marble.html">
+  <div class="game-icon marble">M</div>
+  <div class="game-info"><h3>平衡球</h3><p>方向键滚动收集金球，避开黑洞</p></div>
+</a>
+
+<a class="game-card" href="pinball.html">
+  <div class="game-icon pinball">P</div>
+  <div class="game-info"><h3>弹球</h3><p>经典弹球，反弹球击打障碍物得分</p></div>
+</a>
+
+<a class="game-card" href="catch.html">
+  <div class="game-icon catch">C</div>
+  <div class="game-info"><h3>接方块</h3><p>移动接住下落的彩色方块，漏3个结束</p></div>
+</a>
+
+<a class="game-card" href="dontstep.html">
+  <div class="game-icon dontstep">N</div>
+  <div class="game-info"><h3>别踩白块</h3><p>点击黑色方块，速度越来越快</p></div>
+</a>
+
+</div>
+</div>
+</body>
+</html>

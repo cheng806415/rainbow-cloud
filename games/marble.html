@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>平衡球</title>
+<style>
+body { background: #111; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; overflow: hidden; }
+#wrap { text-align: center; color: #fff; }
+#info { font-size: 18px; margin-bottom: 10px; color: #aaa; }
+#info span { color: #f39c12; font-weight: bold; }
+canvas { display: block; margin: 0 auto; border-radius: 8px; }
+#over { margin-top: 10px; font-size: 18px; color: #888; }
+</style>
+</head>
+<body>
+<div id="wrap">
+<div id="info">分数: <span id="score">0</span> | 别掉下去！</div>
+<canvas id="c"></canvas>
+<div id="over">方向键控制滚动 | 点击开始</div>
+</div>
+<script>
+var canvas=document.getElementById('c'),ctx=canvas.getContext('2d');
+canvas.width=600;canvas.height=500;
+var W=canvas.width,H=canvas.height;
+var ball={x:W/2,y:H/2,r:10,vx:0,vy:0};
+var coins=[],holes=[],score=0,alive=false,frame=0;
+var keys={};
+
+function addCoin(){
+    coins.push({x:Math.random()*(W-40)+20,y:Math.random()*(H-40)+20,r:8});
+}
+
+function addHole(){
+    holes.push({x:Math.random()*(W-60)+30,y:Math.random()*(H-60)+30,r:18+Math.random()*15});
+}
+
+function resetGame(){
+    score=0;coins=[];holes=[];
+    ball.x=W/2;ball.y=H/2;ball.vx=0;ball.vy=0;
+    for(var i=0;i<5;i++)addCoin();
+    document.getElementById('score').textContent=0;
+}
+
+function update(){
+    frame++;
+    if(keys.ArrowLeft)ball.vx-=0.4;
+    if(keys.ArrowRight)ball.vx+=0.4;
+    if(keys.ArrowUp)ball.vy-=0.4;
+    if(keys.ArrowDown)ball.vy+=0.4;
+    ball.vx*=0.97;ball.vy*=0.97;
+    ball.x+=ball.vx;ball.y+=ball.vy;
+    if(ball.x<ball.r){ball.x=ball.r;ball.vx*=-0.5;}
+    if(ball.x>W-ball.r){ball.x=W-ball.r;ball.vx*=-0.5;}
+    if(ball.y<ball.r){ball.y=ball.r;ball.vy*=-0.5;}
+    if(ball.y>H-ball.r){ball.y=H-ball.r;ball.vy*=-0.5;}
+    
+    for(var i=holes.length-1;i>=0;i--){
+        var h=holes[i];
+        var dx=ball.x-h.x,dy=ball.y-h.y;
+        if(Math.sqrt(dx*dx+dy*dy)<h.r*0.6){
+            alive=false;
+            document.getElementById('over').textContent='掉进洞里了！得分: '+score+' 点击重新开始';
+            return;
+        }
+    }
+    
+    for(var i=coins.length-1;i>=0;i--){
+        var c=coins[i];
+        var dx=ball.x-c.x,dy=ball.y-c.y;
+        if(Math.sqrt(dx*dx+dy*dy)<ball.r+c.r){
+            coins.splice(i,1);
+            score++;
+            document.getElementById('score').textContent=score;
+            if(coins.length===0){
+                for(var j=0;j<5;j++)addCoin();
+                addHole();
+            }
+        }
+    }
+}
+
+function draw(){
+    ctx.clearRect(0,0,W,H);
+    holes.forEach(function(h){
+        ctx.beginPath();ctx.arc(h.x,h.y,h.r,0,Math.PI*2);
+        ctx.fillStyle='#000';ctx.fill();
+        ctx.strokeStyle='#333';ctx.lineWidth=2;ctx.stroke();
+    });
+    coins.forEach(function(c){
+        ctx.beginPath();ctx.arc(c.x,c.y,c.r,0,Math.PI*2);
+        ctx.fillStyle='#f1c40f';ctx.fill();
+        ctx.strokeStyle='#e67e22';ctx.lineWidth=1;ctx.stroke();
+    });
+    ctx.beginPath();ctx.arc(ball.x,ball.y,ball.r,0,Math.PI*2);
+    ctx.fillStyle='#3498db';ctx.fill();
+    ctx.strokeStyle='#2980b9';ctx.lineWidth=2;ctx.stroke();
+}
+
+function loop(){
+    if(!alive){draw();return;}
+    update();draw();
+    requestAnimationFrame(loop);
+}
+
+document.addEventListener('keydown',function(e){
+    keys[e.key]=true;
+    if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].indexOf(e.key)!==-1)e.preventDefault();
+});
+
+document.addEventListener('keyup',function(e){
+    keys[e.key]=false;
+});
+
+canvas.addEventListener('click',function(){
+    if(!alive){
+        resetGame();
+        alive=true;
+        document.getElementById('over').textContent='';
+        loop();
+    }
+});
+
+draw();
+</script>
+</body>
+</html>

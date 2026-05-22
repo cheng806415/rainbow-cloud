@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>别踩白块</title>
+<style>
+body { background: #111; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; overflow: hidden; }
+#wrap { text-align: center; color: #fff; }
+#info { font-size: 18px; margin-bottom: 10px; color: #aaa; }
+#info span { color: #2c3e50; font-weight: bold; }
+canvas { display: block; margin: 0 auto; border-radius: 8px; background: #fff; }
+#over { margin-top: 10px; font-size: 18px; color: #888; }
+</style>
+</head>
+<body>
+<div id="wrap">
+<div id="info">分数: <span id="score">0</span></div>
+<canvas id="c"></canvas>
+<div id="over">点击黑色方块 | 点击开始</div>
+</div>
+<script>
+var canvas=document.getElementById('c'),ctx=canvas.getContext('2d');
+canvas.width=300;canvas.height=500;
+var W=canvas.width,H=canvas.height;
+var cols=4,rows=5,cw=W/cols,ch=H/rows;
+var grid=[],score=0,alive=false,speed=1.5;
+
+function makeGrid(){
+    grid=[];
+    for(var r=0;r<rows;r++){
+        var row=[];
+        var black=Math.floor(Math.random()*cols);
+        for(var c=0;c<cols;c++){
+            row.push({
+                x:c*cw,
+                y:r*ch,
+                color:c===black?'#2c3e50':'#fff',
+                isBlack:c===black,
+                clicked:false
+            });
+        }
+        grid.push(row);
+    }
+}
+
+function resetGame(){
+    score=0;speed=1.5;
+    document.getElementById('score').textContent=0;
+    makeGrid();
+}
+
+function update(){
+    for(var r=0;r<rows;r++){
+        for(var c=0;c<cols;c++){
+            grid[r][c].y+=speed;
+        }
+    }
+    for(var r=0;r<rows;r++){
+        for(var c=0;c<cols;c++){
+            if(grid[r][c].isBlack&&!grid[r][c].clicked&&grid[r][c].y>H){
+                alive=false;
+                document.getElementById('over').textContent='游戏结束！得分: '+score+' 点击重新开始';
+                return;
+            }
+        }
+    }
+    if(grid[0][0].y>ch){
+        grid.shift();
+        var row=[];
+        var black=Math.floor(Math.random()*cols);
+        for(var c=0;c<cols;c++){
+            row.push({
+                x:c*cw,
+                y:(rows-1)*ch,
+                color:c===black?'#2c3e50':'#fff',
+                isBlack:c===black,
+                clicked:false
+            });
+        }
+        grid.push(row);
+        speed+=0.05;
+    }
+}
+
+function draw(){
+    ctx.clearRect(0,0,W,H);
+    for(var r=0;r<rows;r++){
+        for(var c=0;c<cols;c++){
+            var cell=grid[r][c];
+            ctx.fillStyle=cell.clicked?'#ddd':cell.color;
+            ctx.fillRect(cell.x+1,cell.y,cw-2,ch-1);
+            if(cell.isBlack&&!cell.clicked){
+                ctx.fillStyle='rgba(255,255,255,0.1)';
+                ctx.fillRect(cell.x+1,cell.y,cw-2,ch-1);
+            }
+        }
+    }
+}
+
+function loop(){
+    if(!alive){draw();return;}
+    update();draw();
+    requestAnimationFrame(loop);
+}
+
+canvas.addEventListener('click',function(e){
+    if(!alive){
+        resetGame();
+        alive=true;
+        document.getElementById('over').textContent='';
+        loop();
+        return;
+    }
+    var rect=canvas.getBoundingClientRect();
+    var mx=e.clientX-rect.left;
+    var my=e.clientY-rect.top;
+    var col=Math.floor(mx/cw);
+    for(var r=0;r<rows;r++){
+        var cell=grid[r][col];
+        if(cell&&cell.isBlack&&!cell.clicked&&my>=cell.y&&my<cell.y+ch){
+            cell.clicked=true;
+            score++;
+            document.getElementById('score').textContent=score;
+            speed+=0.02;
+            break;
+        }
+    }
+});
+
+makeGrid();
+draw();
+</script>
+</body>
+</html>
