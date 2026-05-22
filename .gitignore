@@ -1,0 +1,26 @@
+# Flutter build outputs
+client/build/
+client/.dart_tool/
+client/.flutter-plugins*
+
+# PHP session/temp files
+*.log
+*.tmp
+*.swp
+
+# ZIP packages
+update_*.zip
+client_package_*.zip
+update_all_*.zip
+flutter_*.txt
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+config.php.bak
