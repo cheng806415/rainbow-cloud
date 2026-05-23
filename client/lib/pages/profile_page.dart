@@ -47,7 +47,9 @@ class ProfilePage extends StatelessWidget {
     return Column(
       children: [
         _buildHeader(context, authProvider),
-        const Divider(),
+        const SizedBox(height: 16),
+        _buildUserInfoCard(context, authProvider),
+        const SizedBox(height: 16),
         _buildStorageCard(context, authProvider),
         const SizedBox(height: 16),
         _buildMenuList(context, authProvider),
@@ -102,6 +104,60 @@ class ProfilePage extends StatelessWidget {
               authProvider.level > 0 ? '高级用户' : '普通用户',
               style: const TextStyle(color: Colors.white),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildUserInfoCard(BuildContext context, AuthProvider authProvider) {
+    final userInfo = authProvider.userInfo;
+    final isDesktop = MediaQuery.of(context).size.width > 600;
+
+    return Card(
+      margin: EdgeInsets.symmetric(horizontal: isDesktop ? 0 : 16),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.info_outline),
+                const SizedBox(width: 8),
+                Text('账号信息', style: Theme.of(context).textTheme.titleMedium),
+              ],
+            ),
+            const SizedBox(height: 12),
+            _buildInfoRow(context, '用户名', userInfo['username'] ?? '未知'),
+            _buildInfoRow(context, '用户 ID', (userInfo['uid'] ?? 0).toString()),
+            _buildInfoRow(context, '用户组', authProvider.level > 0 ? '高级用户' : '普通用户'),
+            if (userInfo['addtime'] != null)
+              _buildInfoRow(context, '注册时间', userInfo['addtime'].toString()),
+            if (userInfo['lasttime'] != null)
+              _buildInfoRow(context, '上次登录', userInfo['lasttime'].toString()),
+            if (userInfo['allow_view'] != null)
+              _buildInfoRow(context, '在线预览', (userInfo['allow_view'] ?? 1) == 1 ? '已启用' : '已禁用'),
+            if (userInfo['allow_search'] != null)
+              _buildInfoRow(context, '搜索功能', (userInfo['allow_search'] ?? 1) == 1 ? '已启用' : '已禁用'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(BuildContext context, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 80,
+            child: Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 14)),
+          ),
+          Expanded(
+            child: Text(value, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14)),
           ),
         ],
       ),

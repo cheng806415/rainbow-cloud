@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
@@ -40,6 +41,15 @@ class _UploadPageState extends State<UploadPage> {
     final apiClient = ApiClient();
 
     try {
+      final csrfToken = await apiClient.ensureCsrfToken();
+      if (csrfToken == null) {
+        setState(() {
+          task.status = UploadStatus.failed;
+          task.message = '获取CSRF Token失败，请重新登录';
+        });
+        return;
+      }
+
       final file = File(task.path);
       final bytes = await file.readAsBytes();
       final md5Hash = md5.convert(bytes).toString();
@@ -49,17 +59,18 @@ class _UploadPageState extends State<UploadPage> {
 
       final preResponse = await apiClient.post('/ajax.php',
         queryParameters: {'act': 'pre_upload'},
-        data: {
-          'csrf_token': apiClient.csrfToken,
+        data: FormData.fromMap({
+          'csrf_token': csrfToken,
           'name': task.name,
           'hash': md5Hash,
           'size': fileSize,
           'show': 1,
           'ispwd': 0,
-        },
+        }),
       );
 
-      if (preResponse.data['code'] == 1) {
+      final preData = _safeResponse(preResponse);
+      if (preData['code'] == 1) {
         setState(() {
           task.status = UploadStatus.exists;
           task.message = '文件已存在';
@@ -67,16 +78,16 @@ class _UploadPageState extends State<UploadPage> {
         return;
       }
 
-      if (preResponse.data['code'] != 0) {
+      if (preData['code'] != 0) {
         setState(() {
           task.status = UploadStatus.failed;
-          task.message = preResponse.data['msg'];
+          task.message = preData['msg']?.toString() ?? '上传预检失败';
         });
         return;
       }
 
-      final chunks = (preResponse.data['chunks'] ?? 1) as int;
-      final chunkSize = (preResponse.data['chunksize'] ?? fileSize) as int;
+      final chunks = _toInt(preData['chunks'] ?? 1);
+      final chunkSize = _toInt(preData['chunksize'] ?? fileSize);
 
       setState(() => task.status = UploadStatus.uploading);
 
@@ -273,6 +284,33 @@ class _UploadPageState extends State<UploadPage> {
     if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
     if (bytes < 1024 * 1024 * 1024) return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
     return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
+  }
+
+  Map<String, dynamic> _safeResponse(Response response) {
+    if (response.data is Map<String, dynamic>) {
+      return response.data as Map<String, dynamic>;
+    }
+    if (response.data is Map) {
+      return Map<String, dynamic>.from(response.data);
+    }
+    if (response.data is String) {
+      final str = (response.data as String).trim();
+      final idx = str.indexOf('{');
+      if (idx >= 0) {
+        try {
+          final parsed = const JsonDecoder().convert(str.substring(idx));
+          if (parsed is Map) return Map<String, dynamic>.from(parsed);
+        } catch (_) {}
+      }
+    }
+    return {'code': -1, 'msg': '服务器返回了非JSON响应'};
+  }
+
+  int _toInt(dynamic value) {
+    if (value is int) return value;
+    if (value is double) return value.toInt();
+    if (value is String) return int.tryParse(value) ?? 0;
+    return 0;
   }
 }
 

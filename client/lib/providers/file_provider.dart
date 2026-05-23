@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:dio/dio.dart';
 import '../utils/api_client.dart';
 import '../models/file_model.dart';
 
@@ -39,10 +40,10 @@ class FileProvider extends ChangeNotifier {
 
   Future<bool> deleteFile(FileModel file) async {
     try {
-      final token = await _apiClient.getCsrfToken();
+      final token = await _apiClient.ensureCsrfToken();
       final response = await _apiClient.post('/ajax.php',
         queryParameters: {'act': 'deleteFile'},
-        data: {'csrf_token': token, 'hash': file.hash},
+        data: FormData.fromMap({'csrf_token': token, 'hash': file.hash}),
       );
       if (response.data['code'] == 0) {
         _files.removeWhere((f) => f.id == file.id);
@@ -57,12 +58,12 @@ class FileProvider extends ChangeNotifier {
 
   Future<Map<String, dynamic>> batchDelete(List<FileModel> files) async {
     try {
-      final token = await _apiClient.getCsrfToken();
+      final token = await _apiClient.ensureCsrfToken();
       final hashes = files.map((f) => f.hash).join(',');
       final ids = files.map((f) => f.id.toString()).join(',');
       final response = await _apiClient.post('/ajax.php',
         queryParameters: {'act': 'batch_delete'},
-        data: {'csrf_token': token, 'hashes': hashes, 'ids': ids},
+        data: FormData.fromMap({'csrf_token': token, 'hashes': hashes, 'ids': ids}),
       );
       if (response.data['code'] == 0) {
         final deletedHashes = files.map((f) => f.hash).toSet();

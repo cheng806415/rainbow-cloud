@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:dio/dio.dart';
 import '../models/file_model.dart';
 import '../utils/api_client.dart';
 
@@ -22,10 +23,19 @@ class _RecyclePageState extends State<RecyclePage> {
     });
   }
 
-  void _loadDeletedFiles() {
+  Future<void> _loadDeletedFiles() async {
     setState(() => _isLoading = true);
-    // Replace with actual API call
-    _deletedFiles.clear();
+    try {
+      final response = await ApiClient().get('/ajax.php', params: {'act': 'recycle_list'});
+      if (response.data['code'] == 0) {
+        _deletedFiles.clear();
+        _deletedFiles.addAll(
+          (response.data['files'] as List).map((e) => FileModel.fromJson(e)),
+        );
+      }
+    } catch (e) {
+      // ignore
+    }
     _selectedIds.clear();
     setState(() => _isLoading = false);
   }
@@ -45,10 +55,10 @@ class _RecyclePageState extends State<RecyclePage> {
 
     if (confirmed == true) {
       try {
-        final token = await ApiClient().getCsrfToken();
+        final token = await ApiClient().ensureCsrfToken();
         final response = await ApiClient().post('/ajax.php',
           queryParameters: {'act': 'restoreFile'},
-          data: {'csrf_token': token, 'hash': file.hash},
+          data: FormData.fromMap({'csrf_token': token, 'hash': file.hash}),
         );
         if (response.data['code'] == 0) {
           _deletedFiles.remove(file);
@@ -94,10 +104,10 @@ class _RecyclePageState extends State<RecyclePage> {
 
     if (confirmed == true) {
       try {
-        final token = await ApiClient().getCsrfToken();
+        final token = await ApiClient().ensureCsrfToken();
         final response = await ApiClient().post('/ajax.php',
           queryParameters: {'act': 'permanentDelete'},
-          data: {'csrf_token': token, 'hash': file.hash},
+          data: FormData.fromMap({'csrf_token': token, 'hash': file.hash}),
         );
         if (response.data['code'] == 0) {
           _deletedFiles.remove(file);

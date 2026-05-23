@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import 'home_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -20,19 +21,14 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
   final _regRepasswordController = TextEditingController();
   bool _isLoginLoading = false;
   bool _isRegisterLoading = false;
-  String _serverUrlController = '';
-  bool _showServerUrl = false;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _serverUrlController = context.read<AuthProvider>().serverUrl;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<AuthProvider>().initServerUrl();
+    });
   }
 
   @override
@@ -50,19 +46,22 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
     if (!_loginFormKey.currentState!.validate()) return;
     setState(() => _isLoginLoading = true);
     final authProvider = context.read<AuthProvider>();
-    final success = await authProvider.login(
-      _loginUsernameController.text.trim(),
-      _loginPasswordController.text,
-    );
+    final username = _loginUsernameController.text.trim();
+    final password = _loginPasswordController.text;
+    final result = await authProvider.login(username, password);
     setState(() => _isLoginLoading = false);
+    final success = result['success'] == true;
+    final message = result['message'] ?? (success ? '登录成功' : '登录失败');
     if (success && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('登录成功'), backgroundColor: Colors.green),
       );
-      Navigator.of(context).pushReplacementNamed('/home');
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const HomePage()),
+      );
     } else if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('用户名或密码错误'), backgroundColor: Colors.red),
+        SnackBar(content: Text(message), backgroundColor: Colors.red),
       );
     }
   }
@@ -77,20 +76,23 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
     }
     setState(() => _isRegisterLoading = true);
     final authProvider = context.read<AuthProvider>();
-    final success = await authProvider.register(
-      _regUsernameController.text.trim(),
-      _regPasswordController.text,
-      _regRepasswordController.text,
-    );
+    final username = _regUsernameController.text.trim();
+    final password = _regPasswordController.text;
+    final repassword = _regRepasswordController.text;
+    final result = await authProvider.register(username, password, repassword);
     setState(() => _isRegisterLoading = false);
+    final success = result['success'] == true;
+    final message = result['message'] ?? (success ? '注册成功，已自动登录' : '注册失败，请稍后重试');
     if (success && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('注册成功，已自动登录'), backgroundColor: Colors.green),
       );
-      Navigator.of(context).pushReplacementNamed('/home');
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const HomePage()),
+      );
     } else if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('注册失败，请稍后重试'), backgroundColor: Colors.red),
+        SnackBar(content: Text(message), backgroundColor: Colors.red),
       );
     }
   }
@@ -115,33 +117,7 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                   Icon(Icons.cloud, size: 64, color: Theme.of(context).colorScheme.primary),
                   const SizedBox(height: 8),
                   Text('彩虹网盘', style: Theme.of(context).textTheme.headlineSmall),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () => setState(() => _showServerUrl = !_showServerUrl),
-                          icon: const Icon(Icons.settings, size: 18),
-                          label: Text(_showServerUrl ? '收起服务器设置' : '服务器设置'),
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (_showServerUrl) ...[
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      initialValue: _serverUrlController,
-                      decoration: const InputDecoration(
-                        labelText: '服务器地址',
-                        prefixIcon: Icon(Icons.http),
-                        border: OutlineInputBorder(),
-                      ),
-                      onChanged: (value) {
-                        context.read<AuthProvider>().setServerUrl(value);
-                      },
-                    ),
-                  ],
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 24),
                   TabBar(
                     controller: _tabController,
                     tabs: const [Tab(text: '登录'), Tab(text: '注册')],
@@ -178,7 +154,7 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
               prefixIcon: Icon(Icons.person),
               border: OutlineInputBorder(),
             ),
-            validator: (v) => v == null || v.isEmpty ? '请输入用户名' : null,
+            validator: (v) => (v == null || v.trim().isEmpty) ? '请输入用户名' : null,
           ),
           const SizedBox(height: 16),
           TextFormField(
@@ -220,7 +196,7 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
               border: OutlineInputBorder(),
               helperText: '2-20位字母、数字、下划线或中文',
             ),
-            validator: (v) => v == null || v.isEmpty ? '请输入用户名' : null,
+            validator: (v) => (v == null || v.trim().isEmpty) ? '请输入用户名' : null,
           ),
           const SizedBox(height: 16),
           TextFormField(

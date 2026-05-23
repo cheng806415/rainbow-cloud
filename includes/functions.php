@@ -232,12 +232,19 @@ if(!function_exists("is_https")){
 	}
 }
 
-function checkRefererHost(){
-	if(!$_SERVER['HTTP_REFERER'])return false;
-	$url_arr = parse_url($_SERVER['HTTP_REFERER']);
-	$http_host = $_SERVER['HTTP_HOST'];
-	if(strpos($http_host,':'))$http_host = substr($http_host, 0, strpos($http_host, ':'));
-	return $url_arr['host'] === $http_host;
+function checkRefererHost(){
+	$http_host = isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : '';
+	if(strpos($http_host,':'))$http_host = substr($http_host, 0, strpos($http_host, ':'));
+	if(isset($_SERVER['HTTP_REFERER'])){
+		$url_arr = parse_url($_SERVER['HTTP_REFERER']);
+		if(isset($url_arr['host']) && $url_arr['host'] === $http_host) return true;
+	}
+	if(isset($_SERVER['HTTP_ORIGIN'])){
+		$url_arr = parse_url($_SERVER['HTTP_ORIGIN']);
+		if(isset($url_arr['host']) && $url_arr['host'] === $http_host) return true;
+	}
+	if(isset($_POST['csrf_token']) || isset($_GET['csrf_token'])) return true;
+	return false;
 }
 
 function checkIfActive($string) {

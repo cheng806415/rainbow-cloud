@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:dio/dio.dart';
+import '../utils/api_client.dart';
 import '../models/share_model.dart';
 
 class SharePage extends StatefulWidget {
@@ -21,35 +23,30 @@ class _SharePageState extends State<SharePage> {
     });
   }
 
-  void _loadShares() {
+  Future<void> _loadShares() async {
     setState(() => _isLoading = true);
-    // Simulated data for now - replace with API call
-    _shares.clear();
-    _shares.addAll([
-      ShareModel(
-        id: 1,
-        surl: 'abc123',
-        fileId: 1,
-        uid: 1,
-        pwd: '1234',
-        expireType: 0,
-        downloadCount: 5,
-        viewCount: 20,
-        addtime: '2024-01-15 10:30:00',
-      ),
-      ShareModel(
-        id: 2,
-        surl: 'def456',
-        fileId: 2,
-        uid: 1,
-        pwd: '',
-        expireType: 1,
-        expireTime: '2024-01-22 10:30:00',
-        downloadCount: 2,
-        viewCount: 10,
-        addtime: '2024-01-15 11:00:00',
-      ),
-    ]);
+    try {
+      final response = await ApiClient().get('/ajax.php', params: {'act': 'share_list'});
+      if (response.data['code'] == 0) {
+        _shares.clear();
+        final shares = (response.data['shares'] as List);
+        for (final s in shares) {
+          final shareData = Map<String, dynamic>.from(s);
+          if (shareData['file_name'] != null) {
+            shareData['file'] = {
+              'id': shareData['file_id'] ?? 0,
+              'name': shareData['file_name'] ?? '未知文件',
+              'size': shareData['file_size'] ?? 0,
+              'hash': shareData['file_hash'] ?? '',
+              'type': shareData['file_type'] ?? '',
+            };
+          }
+          _shares.add(ShareModel.fromJson(shareData));
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
     setState(() => _isLoading = false);
   }
 
@@ -132,9 +129,20 @@ class _SharePageState extends State<SharePage> {
                                 const Icon(Icons.link, size: 20),
                                 const SizedBox(width: 8),
                                 Expanded(
-                                  child: Text(
-                                    '/s/${share.surl}',
-                                    style: const TextStyle(fontWeight: FontWeight.bold),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        share.file?.name ?? '/s/${share.surl}',
+                                        style: const TextStyle(fontWeight: FontWeight.bold),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      Text(
+                                        '/s/${share.surl}',
+                                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                                      ),
+                                    ],
                                   ),
                                 ),
                                 IconButton(
@@ -170,6 +178,12 @@ class _SharePageState extends State<SharePage> {
                                     style: TextStyle(fontSize: 12, color: Colors.grey[600])),
                               ],
                             ),
+                            if (share.addtime != null)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: Text('创建于 ${share.addtime}',
+                                    style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+                              ),
                           ],
                         ),
                       ),

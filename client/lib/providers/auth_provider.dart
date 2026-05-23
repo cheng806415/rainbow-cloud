@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../utils/api_client.dart';
 import '../utils/constants.dart';
@@ -8,6 +9,7 @@ class AuthProvider extends ChangeNotifier {
   final _apiClient = ApiClient();
 
   String _serverUrl = AppConstants.defaultServerUrl;
+  Timer? _heartbeatTimer;
 
   String get serverUrl => _serverUrl;
   bool get isLoggedIn => _apiClient.isLoggedIn;
@@ -31,17 +33,30 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<bool> login(String username, String password) async {
-    return await _apiClient.login(username, password);
+  Future<Map<String, dynamic>> login(String username, String password) async {
+    final result = await _apiClient.login(username, password);
+    if (result['success'] == true) {
+      notifyListeners();
+      _startHeartbeat();
+    }
+    return result;
   }
 
-  Future<bool> register(String username, String password, String repassword) async {
-    return await _apiClient.register(username, password, repassword);
+  Future<Map<String, dynamic>> register(String username, String password, String repassword) async {
+    final result = await _apiClient.register(username, password, repassword);
+    if (result['success'] == true) {
+      notifyListeners();
+      _startHeartbeat();
+    }
+    return result;
   }
 
   Future<void> checkLoginStatus() async {
     await _apiClient.loadUserInfo();
     notifyListeners();
+    if (_apiClient.isLoggedIn) {
+      _startHeartbeat();
+    }
   }
 
   Future<void> loadUserInfo() async {
@@ -50,8 +65,33 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> logout() async {
+    _stopHeartbeat();
     await _apiClient.logout();
     notifyListeners();
+  }
+
+  void _startHeartbeat() {
+    _stopHeartbeat();
+    _heartbeatTimer = Timer.periodic(const Duration(seconds: 60), (timer) async {
+      try {
+        await _apiClient.loadUserInfo();
+      } catch (e) {
+        // 心跳失败，可能需要重新登录
+      }
+    });
+  }
+
+  void _stopHeartbeat() {
+    if (_heartbeatTimer != null) {
+      _heartbeatTimer!.cancel();
+      _heartbeatTimer = null;
+    }
+  }
+
+  @override
+  void dispose() {
+    _stopHeartbeat();
+    super.dispose();
   }
 
   String get nickname => _apiClient.nickname;

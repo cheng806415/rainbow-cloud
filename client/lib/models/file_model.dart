@@ -45,27 +45,34 @@ class FileModel {
 
   factory FileModel.fromJson(Map<String, dynamic> json) {
     return FileModel(
-      id: json['id'] ?? 0,
-      name: json['name'] ?? '未知文件',
-      type: json['type'],
-      size: json['size'] ?? 0,
-      hash: json['hash'] ?? '',
-      sha256: json['sha256'],
-      addtime: json['addtime'],
-      lasttime: json['lasttime'],
-      ip: json['ip'],
-      hide: (json['hide'] ?? 0) == 1,
-      pwd: json['pwd'],
-      block: json['block'] ?? 0,
-      count: json['count'] ?? 0,
-      uid: json['uid'] ?? 0,
-      folderId: json['folder_id'] ?? 0,
-      folderName: json['folder_name'],
-      isDeleted: (json['is_deleted'] ?? 0) == 1,
-      deletedTime: json['deleted_time'],
-      deletedBy: json['deleted_by'],
-      savedFrom: json['saved_from'],
+      id: _toInt(json['id']),
+      name: json['name']?.toString() ?? '未知文件',
+      type: json['type']?.toString(),
+      size: _toInt(json['size']),
+      hash: json['hash']?.toString() ?? '',
+      sha256: json['sha256']?.toString(),
+      addtime: json['addtime']?.toString(),
+      lasttime: json['lasttime']?.toString(),
+      ip: json['ip']?.toString(),
+      hide: _toInt(json['hide']) == 1,
+      pwd: json['pwd']?.toString(),
+      block: _toInt(json['block']),
+      count: _toInt(json['count']),
+      uid: _toInt(json['uid']),
+      folderId: _toInt(json['folder_id']),
+      folderName: json['folder_name']?.toString(),
+      isDeleted: _toInt(json['is_deleted']) == 1,
+      deletedTime: json['deleted_time']?.toString(),
+      deletedBy: json['deleted_by'] != null ? _toInt(json['deleted_by']) : null,
+      savedFrom: json['saved_from'] != null ? _toInt(json['saved_from']) : null,
     );
+  }
+
+  static int _toInt(dynamic value) {
+    if (value is int) return value;
+    if (value is double) return value.toInt();
+    if (value is String) return int.tryParse(value) ?? 0;
+    return 0;
   }
 
   String get formattedSize => _formatBytes(size);

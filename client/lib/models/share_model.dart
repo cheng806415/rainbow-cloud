@@ -33,20 +33,27 @@ class ShareModel {
 
   factory ShareModel.fromJson(Map<String, dynamic> json) {
     return ShareModel(
-      id: json['id'] ?? 0,
-      surl: json['surl'] ?? '',
-      fileId: json['file_id'] ?? 0,
-      uid: json['uid'] ?? 0,
-      pwd: json['pwd'],
-      expireTime: json['expire_time'],
-      expireType: json['expire_type'] ?? 0,
-      downloadLimit: json['download_limit'] ?? 0,
-      downloadCount: json['download_count'] ?? 0,
-      viewCount: json['view_count'] ?? 0,
-      status: json['status'] ?? 1,
-      addtime: json['addtime'],
+      id: _toInt(json['id']),
+      surl: json['surl']?.toString() ?? '',
+      fileId: _toInt(json['file_id']),
+      uid: _toInt(json['uid']),
+      pwd: json['pwd']?.toString(),
+      expireTime: json['expire_time']?.toString(),
+      expireType: _toInt(json['expire_type']),
+      downloadLimit: _toInt(json['download_limit']),
+      downloadCount: _toInt(json['download_count']),
+      viewCount: _toInt(json['view_count']),
+      status: _toInt(json['status'], defaultValue: 1),
+      addtime: json['addtime']?.toString(),
       file: json['file'] != null ? FileModel.fromJson(json['file']) : null,
     );
+  }
+
+  static int _toInt(dynamic value, {int defaultValue = 0}) {
+    if (value is int) return value;
+    if (value is double) return value.toInt();
+    if (value is String) return int.tryParse(value) ?? defaultValue;
+    return defaultValue;
   }
 
   String get shareUrl => '/s/$surl';

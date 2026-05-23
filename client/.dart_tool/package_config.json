@@ -153,9 +153,9 @@
     },
     {
       "name": "file_picker",
-      "rootUri": "file:///C:/Users/nangfeng/AppData/Local/Pub/Cache/hosted/pub.dev/file_picker-6.2.1",
+      "rootUri": "file:///C:/Users/nangfeng/AppData/Local/Pub/Cache/hosted/pub.dev/file_picker-10.3.10",
       "packageUri": "lib/",
-      "languageVersion": "2.19"
+      "languageVersion": "3.4"
     },
     {
       "name": "file_selector_linux",

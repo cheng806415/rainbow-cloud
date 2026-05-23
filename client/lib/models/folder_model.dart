@@ -19,13 +19,20 @@ class FolderModel {
 
   factory FolderModel.fromJson(Map<String, dynamic> json) {
     return FolderModel(
-      id: json['id'] ?? 0,
-      name: json['name'] ?? '未知文件夹',
-      uid: json['uid'] ?? 0,
-      pwd: json['pwd'],
-      hide: (json['hide'] ?? 0) == 1,
-      addtime: json['addtime'],
-      fileCount: json['file_count'],
+      id: _toInt(json['id']),
+      name: json['name']?.toString() ?? '未知文件夹',
+      uid: _toInt(json['uid']),
+      pwd: json['pwd']?.toString(),
+      hide: _toInt(json['hide']) == 1,
+      addtime: json['addtime']?.toString(),
+      fileCount: json['file_count'] != null ? _toInt(json['file_count']) : null,
     );
+  }
+
+  static int _toInt(dynamic value) {
+    if (value is int) return value;
+    if (value is double) return value.toInt();
+    if (value is String) return int.tryParse(value) ?? 0;
+    return 0;
   }
 }

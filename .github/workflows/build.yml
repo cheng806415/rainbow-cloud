@@ -1,4 +1,4 @@
-name: Flutter Build CI
+name: Flutter Build & Release
 
 on:
   push:
@@ -116,8 +116,65 @@ jobs:
         run: flutter build web --release
         working-directory: client
 
+      - name: Create Web archive
+        run: |
+          cd client/build/web
+          zip -r "$GITHUB_WORKSPACE/rainbow_cloud_web.zip" .
+
       - name: Upload Web artifact
         uses: actions/upload-artifact@v4
         with:
           name: rainbow_cloud_web
-          path: client/build/web
+          path: rainbow_cloud_web.zip
+
+  create-release:
+    name: Create GitHub Release
+    needs: [build-windows, build-android, build-web]
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: rainbow_cloud_windows
+
+      - name: Download Android APK
+        uses: actions/download-artifact@v4
+        with:
+          name: rainbow_cloud_android_apk
+
+      - name: Download Android AAB
+        uses: actions/download-artifact@v4
+        with:
+          name: rainbow_cloud_android_aab
+
+      - name: Download Web artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: rainbow_cloud_web
+
+      - name: Generate version tag
+        id: version
+        run: |
+          DATETIME=$(TZ='Asia/Shanghai' date +'%Y%m%d-%H%M')
+          echo "tag=v${DATETIME}" >> $GITHUB_OUTPUT
+          echo "name=v${DATETIME}" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: ${{ steps.version.outputs.name }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          files: |
+            rainbow_cloud_windows.zip
+            app-release.apk
+            app-release.aab
+            rainbow_cloud_web.zip

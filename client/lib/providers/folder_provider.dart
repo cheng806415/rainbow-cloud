@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:dio/dio.dart';
 import '../utils/api_client.dart';
 import '../models/folder_model.dart';
 
@@ -16,10 +17,10 @@ class FolderProvider extends ChangeNotifier {
     _isLoading = true;
     notifyListeners();
     try {
-      final token = await _apiClient.getCsrfToken();
+      final token = await _apiClient.ensureCsrfToken();
       final response = await _apiClient.post('/ajax.php',
         queryParameters: {'act': 'folder_list'},
-        data: {'csrf_token': token},
+        data: FormData.fromMap({'csrf_token': token}),
       );
       if (response.data['code'] == 0) {
         _folders = (response.data['folders'] as List).map((e) => FolderModel.fromJson(e)).toList();
@@ -38,10 +39,10 @@ class FolderProvider extends ChangeNotifier {
 
   Future<bool> createFolder(String name) async {
     try {
-      final token = await _apiClient.getCsrfToken();
+      final token = await _apiClient.ensureCsrfToken();
       final response = await _apiClient.post('/ajax.php',
         queryParameters: {'act': 'folder_create'},
-        data: {'csrf_token': token, 'name': name},
+        data: FormData.fromMap({'csrf_token': token, 'name': name}),
       );
       if (response.data['code'] == 0) {
         await loadFolders();
@@ -55,10 +56,10 @@ class FolderProvider extends ChangeNotifier {
 
   Future<bool> deleteFolder(int folderId) async {
     try {
-      final token = await _apiClient.getCsrfToken();
+      final token = await _apiClient.ensureCsrfToken();
       final response = await _apiClient.post('/ajax.php',
         queryParameters: {'act': 'folder_delete'},
-        data: {'csrf_token': token, 'folder_id': folderId},
+        data: FormData.fromMap({'csrf_token': token, 'folder_id': folderId}),
       );
       if (response.data['code'] == 0) {
         _folders.removeWhere((f) => f.id == folderId);
@@ -73,10 +74,10 @@ class FolderProvider extends ChangeNotifier {
 
   Future<bool> toggleHide(int folderId) async {
     try {
-      final token = await _apiClient.getCsrfToken();
+      final token = await _apiClient.ensureCsrfToken();
       final response = await _apiClient.post('/ajax.php',
         queryParameters: {'act': 'folder_toggle_hide'},
-        data: {'csrf_token': token, 'folder_id': folderId},
+        data: FormData.fromMap({'csrf_token': token, 'folder_id': folderId}),
       );
       if (response.data['code'] == 0) {
         await loadFolders();
