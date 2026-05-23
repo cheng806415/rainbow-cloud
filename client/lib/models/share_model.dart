@@ -1,3 +1,5 @@
+import 'file_model.dart';
+
 class ShareModel {
   final int id;
   final String surl;

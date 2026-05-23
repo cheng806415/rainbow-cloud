@@ -92,16 +92,24 @@ class _PreviewPageState extends State<PreviewPage> {
     if (widget.file.isImage) {
       return PhotoView(
         imageProvider: NetworkImage(_getFileUrl()),
-        loadingBuilder: (context, event) => Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const CircularProgressIndicator(),
-              const SizedBox(height: 16),
-              Text('加载中... ${(event.cumulativeBytesLoaded / (event.expectedTotalBytes ?? 1) * 100).toStringAsFixed(0)}%'),
-            ],
-          ),
-        ),
+        loadingBuilder: (context, event) {
+          final total = event?.expectedTotalBytes;
+          final loaded = event?.cumulativeBytesLoaded;
+          String percentText = '加载中...';
+          if (total != null && loaded != null) {
+            percentText = '加载中... ${(loaded / total * 100).toStringAsFixed(0)}%';
+          }
+          return Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const CircularProgressIndicator(),
+                const SizedBox(height: 16),
+                Text(percentText),
+              ],
+            ),
+          );
+        },
         errorBuilder: (context, error, stackTrace) => _buildErrorView('图片加载失败'),
       );
     }

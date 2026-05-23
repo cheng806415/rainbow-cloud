@@ -1,41 +1,26 @@
-# Miscellaneous
-*.class
+# Flutter build outputs
+client/build/
+client/.dart_tool/
+client/.flutter-plugins*
+
+# PHP session/temp files
 *.log
-*.pyc
+*.tmp
 *.swp
 
-# IntelliJ
-.idea/
-*.iml
+# ZIP packages
+update_*.zip
+client_package_*.zip
+update_all_*.zip
+flutter_*.txt
 
-# VSCode
+# IDE
 .vscode/
+.idea/
 
-# Flutter/Dart
-build/
-.pub-cache/
-.packages
-.pub/
-.flutter-plugins
-.flutter-plugins-dependencies
-
-# iOS/Android
-android/app/src/main/res/drawable-*
-android/app/src/main/res/mipmap-*
-android/local.properties
-ios/Flutter/Flutter.framework/
-ios/Flutter/App.framework/
-ios/Flutter/Generated.xcconfig/
-ios/Flutter/flutter_export_environment.sh/
-ios/Flutter/ephemeral/
-
-# Windows
-windows/flutter/ephemeral/
-windows/runner/Debug/
-windows/runner/Release/
-
-# macOS
+# OS
 .DS_Store
+Thumbs.db
 
-# Linux
-*~
+# Environment
+config.php.bak

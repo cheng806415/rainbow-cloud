@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:crypto/crypto.dart';
+import 'package:dio/dio.dart';
 import '../utils/api_client.dart';
 import '../providers/auth_provider.dart';
 
@@ -13,7 +14,7 @@ class UploadPage extends StatefulWidget {
   State<UploadPage> createState() => _UploadPageState();
 }
 
-class UploadPageState extends State<UploadPage> {
+class _UploadPageState extends State<UploadPage> {
   final List<UploadTask> _uploadTasks = [];
   bool _isUploading = false;
 
@@ -74,8 +75,8 @@ class UploadPageState extends State<UploadPage> {
         return;
       }
 
-      final chunks = preResponse.data['chunks'] ?? 1;
-      final chunkSize = preResponse.data['chunksize'] ?? fileSize;
+      final chunks = (preResponse.data['chunks'] ?? 1) as int;
+      final chunkSize = (preResponse.data['chunksize'] ?? fileSize) as int;
 
       setState(() => task.status = UploadStatus.uploading);
 
@@ -99,8 +100,8 @@ class UploadPageState extends State<UploadPage> {
         });
       } else {
         for (int i = 0; i < chunks; i++) {
-          final start = i * chunkSize;
-          final end = (i + 1) * chunkSize > fileSize ? fileSize : (i + 1) * chunkSize;
+          final int start = i * chunkSize;
+          final int end = (i + 1) * chunkSize > fileSize ? fileSize : (i + 1) * chunkSize;
           final chunkData = bytes.sublist(start, end);
 
           final chunkFile = File('${task.path}.part$i');

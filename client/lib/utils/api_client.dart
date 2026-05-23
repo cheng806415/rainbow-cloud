@@ -150,8 +150,8 @@ class ApiClient {
     return await _dio.get(path, queryParameters: params);
   }
 
-  Future<Response> post(String path, {Map<String, dynamic>? data, Options? options}) async {
-    return await _dio.post(path, data: data, options: options);
+  Future<Response> post(String path, {Map<String, dynamic>? queryParameters, dynamic data, Options? options}) async {
+    return await _dio.post(path, queryParameters: queryParameters, data: data, options: options);
   }
 
   Future<Response> upload(String path, FormData formData, {ProgressCallback? onSendProgress}) async {
