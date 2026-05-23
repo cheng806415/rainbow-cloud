@@ -90,46 +90,9 @@ jobs:
           name: rainbow_cloud_android_aab
           path: client/build/app/outputs/bundle/release/app-release.aab
 
-  build-web:
-    name: Build Web
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.44.0'
-          channel: 'stable'
-          cache: true
-
-      - name: Get dependencies
-        run: flutter pub get
-        working-directory: client
-
-      - name: Enable Web
-        run: flutter config --enable-web
-        working-directory: client
-
-      - name: Build Web
-        run: flutter build web --release
-        working-directory: client
-
-      - name: Create Web archive
-        run: |
-          cd client/build/web
-          zip -r "$GITHUB_WORKSPACE/rainbow_cloud_web.zip" .
-
-      - name: Upload Web artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: rainbow_cloud_web
-          path: rainbow_cloud_web.zip
-
   create-release:
     name: Create GitHub Release
-    needs: [build-windows, build-android, build-web]
+    needs: [build-windows, build-android]
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     permissions:
@@ -153,11 +116,6 @@ jobs:
         with:
           name: rainbow_cloud_android_aab
 
-      - name: Download Web artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: rainbow_cloud_web
-
       - name: Generate version tag
         id: version
         run: |
@@ -177,4 +135,3 @@ jobs:
             rainbow_cloud_windows.zip
             app-release.apk
             app-release.aab
-            rainbow_cloud_web.zip
