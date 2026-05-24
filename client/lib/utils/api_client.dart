@@ -207,9 +207,14 @@ class ApiClient {
         return {'code': -1, 'msg': data['msg'] ?? '服务器错误 (${response.statusCode})'};
       }
       if (response.data is String) {
-        AppLogger().w('ApiClient', 'HTTP ${response.statusCode} response: ${response.data}');
-        final parsed = _tryParseJson(response.data as String);
+        final raw = response.data as String;
+        AppLogger().w('ApiClient', 'HTTP ${response.statusCode} response: $raw');
+        final parsed = _tryParseJson(raw);
         if (parsed != null) return parsed;
+        if (raw.contains('<html') || raw.contains('<!DOCTYPE')) {
+          return {'code': -1, 'msg': '服务器返回了HTML页面 (HTTP ${response.statusCode})'};
+        }
+        return {'code': -1, 'msg': '服务器错误 (HTTP ${response.statusCode}): ${raw.substring(0, raw.length > 100 ? 100 : raw.length)}'};
       }
       return {'code': -1, 'msg': '服务器错误 (HTTP ${response.statusCode})'};
     }
@@ -220,11 +225,16 @@ class ApiClient {
       return Map<String, dynamic>.from(response.data);
     }
     if (response.data is String) {
+      final raw = response.data as String;
+      AppLogger().d('ApiClient', 'response raw: $raw');
       try {
-        final parsed = _tryParseJson(response.data as String);
+        final parsed = _tryParseJson(raw);
         if (parsed != null) return parsed;
       } catch (e) {
-        AppLogger().e('ApiClient', 'parse response failed: $e, raw: ${response.data}');
+        AppLogger().e('ApiClient', 'parse response failed: $e, raw: $raw');
+      }
+      if (raw.contains('<html') || raw.contains('<!DOCTYPE')) {
+        return {'code': -1, 'msg': '服务器返回了HTML页面，可能是登录已过期或请求被拦截'};
       }
     }
     return {'code': -1, 'msg': '服务器返回了非JSON响应'};

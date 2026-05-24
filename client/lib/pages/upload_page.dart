@@ -315,6 +315,7 @@ class _UploadPageState extends State<UploadPage> {
   }
 
   Map<String, dynamic> _safeResponse(Response response) {
+    AppLogger().d('Upload', '_safeResponse status: ${response.statusCode}, type: ${response.data.runtimeType}');
     if (response.data is Map<String, dynamic>) {
       return response.data as Map<String, dynamic>;
     }
@@ -323,13 +324,19 @@ class _UploadPageState extends State<UploadPage> {
     }
     if (response.data is String) {
       var str = (response.data as String).trim();
+      AppLogger().d('Upload', 'response raw: $str');
       str = _cleanControlChars(str);
+      if (str.contains('<html') || str.contains('<!DOCTYPE')) {
+        return {'code': -1, 'msg': '服务器返回了HTML页面，可能是登录已过期'};
+      }
       final idx = str.indexOf('{');
       if (idx >= 0) {
         try {
           final parsed = const JsonDecoder().convert(str.substring(idx));
           if (parsed is Map) return Map<String, dynamic>.from(parsed);
-        } catch (_) {}
+        } catch (e) {
+          AppLogger().e('Upload', 'parse json failed: $e, str: $str');
+        }
       }
     }
     return {'code': -1, 'msg': '服务器返回了非JSON响应'};
