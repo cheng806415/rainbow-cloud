@@ -24,3 +24,37 @@ Thumbs.db
 
 # Environment
 config.php.bak
+
+# Temporary files
+_*.txt
+_temp_*.txt
+_gh*.txt
+_dl.txt
+_jobs.txt
+
+# Build outputs
+build_output/
+release_output/
+artifacts/
+client/artifacts/
+client/artifacts-*/
+
+# Packages
+*.zip
+!client/incremental_update_*.zip
+incremental_fix_cdn/
+full_package/
+full_package_v2/
+new-artifacts/
+new-artifacts-*/
+
+# Backup folders
+澶囦唤/
+澶囦唤*/
+备份/
+
+# Test files
+test-*.ps1
+debug_upload.php
+check-site.ps1
+upload_log.txt

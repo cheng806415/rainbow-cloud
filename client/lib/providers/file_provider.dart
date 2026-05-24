@@ -45,7 +45,8 @@ class FileProvider extends ChangeNotifier {
         queryParameters: {'act': 'deleteFile'},
         data: FormData.fromMap({'csrf_token': token, 'hash': file.hash}),
       );
-      if (response.data['code'] == 0) {
+      final data = _apiClient.parseResponse(response);
+      if (data['code'] == 0) {
         _files.removeWhere((f) => f.id == file.id);
         notifyListeners();
         return true;
@@ -65,14 +66,15 @@ class FileProvider extends ChangeNotifier {
         queryParameters: {'act': 'batch_delete'},
         data: FormData.fromMap({'csrf_token': token, 'hashes': hashes, 'ids': ids}),
       );
-      if (response.data['code'] == 0) {
+      final data = _apiClient.parseResponse(response);
+      if (data['code'] == 0) {
         final deletedHashes = files.map((f) => f.hash).toSet();
         _files.removeWhere((f) => deletedHashes.contains(f.hash));
         _selectedFiles.clear();
         notifyListeners();
-        return {'success': true, 'deleted': response.data['deleted'], 'failed': response.data['failed']};
+        return {'success': true, 'deleted': data['deleted'], 'failed': data['failed']};
       }
-      return {'success': false, 'msg': response.data['msg']};
+      return {'success': false, 'msg': data['msg']};
     } catch (e) {
       return {'success': false, 'msg': '网络错误'};
     }

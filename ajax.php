@@ -546,7 +546,8 @@ break;
 	if($islogin2 && $row['uid']!=$uid || !$islogin2 && (!isset($_SESSION['fileids']) || !in_array($row['id'], $_SESSION['fileids'])))exit('{"code":-1,"msg":"无权限"}');
 	if($row['block']==1)exit('{"code":-1,"msg":"文件已被冻结，无法删除"}');
 	if(!$islogin2 && strtotime($row['addtime'])<strtotime("-7 days"))exit('{"code":-1,"msg":"无法删除7天前的文件"}');
-	$DB->exec("UPDATE pre_file SET is_deleted=1, deleted_time=NOW() WHERE id=:id", [':id'=>$row['id']]);
+	$result = $DB->exec("UPDATE pre_file SET is_deleted=1, deleted_time=NOW() WHERE id=:id", [':id'=>$row['id']]);
+	if(!$result)exit('{"code":-1,"msg":"删除失败'.$DB->error().'"}');
 	exit('{"code":0,"msg":"删除文件成功！文件已移至回收站"}');
 break;
 

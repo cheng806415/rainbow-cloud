@@ -189,6 +189,10 @@ class ApiClient {
     return '$_baseUrl$path';
   }
 
+  Map<String, dynamic> parseResponse(Response response) {
+    return _safeResponse(response);
+  }
+
   Map<String, dynamic> _safeResponse(Response response) {
     if (response.statusCode != null && response.statusCode! >= 400) {
       if (response.data is Map) {
