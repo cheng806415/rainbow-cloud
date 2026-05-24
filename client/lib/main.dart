@@ -8,8 +8,12 @@ import 'providers/theme_provider.dart';
 import 'pages/login_page.dart';
 import 'pages/home_page.dart';
 import 'utils/constants.dart';
+import 'utils/app_logger.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await AppLogger().init();
+  AppLogger().i('Main', 'App started');
   runApp(const MyApp());
 }
 

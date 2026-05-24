@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 import '../utils/api_client.dart';
+import '../utils/app_logger.dart';
 import '../providers/auth_provider.dart';
 
 class UploadPage extends StatefulWidget {
@@ -54,6 +55,7 @@ class _UploadPageState extends State<UploadPage> {
       final bytes = await file.readAsBytes();
       final md5Hash = md5.convert(bytes).toString();
       final fileSize = bytes.length;
+      AppLogger().i('Upload', 'start upload: ${task.name}, size: $fileSize, hash: $md5Hash');
 
       setState(() => task.status = UploadStatus.checking);
 
@@ -68,6 +70,7 @@ class _UploadPageState extends State<UploadPage> {
           'ispwd': 0,
         }),
       );
+      AppLogger().d('Upload', 'pre_upload response: ${preResponse.data}');
 
       final preData = _safeResponse(preResponse);
       if (preData['code'] == 1) {
@@ -105,14 +108,17 @@ class _UploadPageState extends State<UploadPage> {
             setState(() => task.progress = sent / total);
           },
         );
+        AppLogger().d('Upload', 'upload_part response: ${uploadResponse.data}');
         final uploadData = _safeResponse(uploadResponse);
         if (uploadData['code'] == 1) {
+          AppLogger().i('Upload', 'upload success: ${task.name}');
           setState(() {
             task.status = UploadStatus.success;
             task.progress = 1.0;
             task.message = uploadData['msg']?.toString() ?? '上传成功';
           });
         } else {
+          AppLogger().e('Upload', 'upload failed: ${task.name}, msg: ${uploadData['msg']}');
           setState(() {
             task.status = UploadStatus.failed;
             task.message = uploadData['msg']?.toString() ?? '上传失败';
@@ -141,6 +147,7 @@ class _UploadPageState extends State<UploadPage> {
               setState(() => task.progress = (i + sent / total) / chunks);
             },
           );
+          AppLogger().d('Upload', 'chunk ${i + 1}/$chunks response: ${lastResponse.data}');
 
           await chunkFile.delete();
         }
@@ -148,12 +155,14 @@ class _UploadPageState extends State<UploadPage> {
         if (lastResponse != null) {
           final uploadData = _safeResponse(lastResponse);
           if (uploadData['code'] == 1) {
+            AppLogger().i('Upload', 'multipart upload success: ${task.name}');
             setState(() {
               task.status = UploadStatus.success;
               task.progress = 1.0;
               task.message = uploadData['msg']?.toString() ?? '上传成功';
             });
           } else {
+            AppLogger().e('Upload', 'multipart upload failed: ${task.name}, msg: ${uploadData['msg']}');
             setState(() {
               task.status = UploadStatus.failed;
               task.message = uploadData['msg']?.toString() ?? '上传失败';
@@ -161,7 +170,8 @@ class _UploadPageState extends State<UploadPage> {
           }
         }
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppLogger().e('Upload', 'upload exception: $e\n$stackTrace');
       setState(() {
         task.status = UploadStatus.failed;
         task.message = '上传失败: $e';
@@ -312,7 +322,8 @@ class _UploadPageState extends State<UploadPage> {
       return Map<String, dynamic>.from(response.data);
     }
     if (response.data is String) {
-      final str = (response.data as String).trim();
+      var str = (response.data as String).trim();
+      str = _cleanControlChars(str);
       final idx = str.indexOf('{');
       if (idx >= 0) {
         try {
@@ -322,6 +333,31 @@ class _UploadPageState extends State<UploadPage> {
       }
     }
     return {'code': -1, 'msg': '服务器返回了非JSON响应'};
+  }
+
+  String _cleanControlChars(String str) {
+    if (str.isEmpty) return str;
+    int start = 0;
+    while (start < str.length) {
+      final codeUnit = str.codeUnitAt(start);
+      if (codeUnit == 0xFEFF || codeUnit <= 0x1F || codeUnit == 0x7F) {
+        start++;
+      } else {
+        break;
+      }
+    }
+    if (start > 0) str = str.substring(start);
+    int end = str.length - 1;
+    while (end >= 0) {
+      final codeUnit = str.codeUnitAt(end);
+      if (codeUnit == 0xFEFF || codeUnit <= 0x1F || codeUnit == 0x7F) {
+        end--;
+      } else {
+        break;
+      }
+    }
+    if (end < str.length - 1) str = str.substring(0, end + 1);
+    return str;
   }
 
   int _toInt(dynamic value) {
