@@ -92,7 +92,7 @@ jobs:
 
   create-release:
     name: Create GitHub Release
-    needs: [build-windows, build-android]
+    needs: [build-windows]
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     permissions:
