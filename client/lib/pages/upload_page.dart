@@ -94,22 +94,32 @@ class _UploadPageState extends State<UploadPage> {
       if (chunks == 1) {
         final formData = FormData.fromMap({
           'file': await MultipartFile.fromFile(task.path, filename: task.name),
+          'chunk': 0,
+          'hash': md5Hash,
         });
 
-        await apiClient.dio.post('/ajax.php',
-          queryParameters: {'act': 'upload_part', 'chunk': 0, 'hash': md5Hash},
+        final uploadResponse = await apiClient.dio.post('/ajax.php',
+          queryParameters: {'act': 'upload_part'},
           data: formData,
           onSendProgress: (sent, total) {
             setState(() => task.progress = sent / total);
           },
         );
-
-        setState(() {
-          task.status = UploadStatus.success;
-          task.progress = 1.0;
-          task.message = '上传成功';
-        });
+        final uploadData = _safeResponse(uploadResponse);
+        if (uploadData['code'] == 1) {
+          setState(() {
+            task.status = UploadStatus.success;
+            task.progress = 1.0;
+            task.message = uploadData['msg']?.toString() ?? '上传成功';
+          });
+        } else {
+          setState(() {
+            task.status = UploadStatus.failed;
+            task.message = uploadData['msg']?.toString() ?? '上传失败';
+          });
+        }
       } else {
+        Response? lastResponse;
         for (int i = 0; i < chunks; i++) {
           final int start = i * chunkSize;
           final int end = (i + 1) * chunkSize > fileSize ? fileSize : (i + 1) * chunkSize;
@@ -120,11 +130,11 @@ class _UploadPageState extends State<UploadPage> {
 
           final formData = FormData.fromMap({
             'file': await MultipartFile.fromFile(chunkFile.path, filename: 'part$i'),
-            'chunk': i,
+            'chunk': i + 1,
             'hash': md5Hash,
           });
 
-          await apiClient.dio.post('/ajax.php',
+          lastResponse = await apiClient.dio.post('/ajax.php',
             queryParameters: {'act': 'upload_part'},
             data: formData,
             onSendProgress: (sent, total) {
@@ -133,12 +143,20 @@ class _UploadPageState extends State<UploadPage> {
           );
 
           await chunkFile.delete();
+        }
 
-          if (i == chunks - 1) {
+        if (lastResponse != null) {
+          final uploadData = _safeResponse(lastResponse);
+          if (uploadData['code'] == 1) {
             setState(() {
               task.status = UploadStatus.success;
               task.progress = 1.0;
-              task.message = '上传成功';
+              task.message = uploadData['msg']?.toString() ?? '上传成功';
+            });
+          } else {
+            setState(() {
+              task.status = UploadStatus.failed;
+              task.message = uploadData['msg']?.toString() ?? '上传失败';
             });
           }
         }
