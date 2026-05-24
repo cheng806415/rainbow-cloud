@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/theme_provider.dart';
 import 'file_list_page.dart';
-import 'upload_page.dart';
 import 'download_page.dart';
 import 'share_page.dart';
 import 'recycle_page.dart';
@@ -18,7 +17,6 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   int _currentIndex = 0;
-  bool _showDrawer = false;
 
   late final List<Widget> _pages;
 
@@ -27,7 +25,6 @@ class _HomePageState extends State<HomePage> {
     super.initState();
     _pages = [
       const FileListPage(),
-      const UploadPage(),
       const DownloadPage(),
       const SharePage(),
       const RecyclePage(),
@@ -66,11 +63,6 @@ class _HomePageState extends State<HomePage> {
                   icon: Icon(Icons.folder_outlined),
                   selectedIcon: Icon(Icons.folder),
                   label: Text('文件'),
-                ),
-                NavigationRailDestination(
-                  icon: Icon(Icons.upload_outlined),
-                  selectedIcon: Icon(Icons.upload),
-                  label: Text('上传'),
                 ),
                 NavigationRailDestination(
                   icon: Icon(Icons.download_outlined),
@@ -127,11 +119,6 @@ class _HomePageState extends State<HomePage> {
             icon: Icon(Icons.folder_outlined),
             selectedIcon: Icon(Icons.folder),
             label: '文件',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.upload_outlined),
-            selectedIcon: Icon(Icons.upload),
-            label: '上传',
           ),
           NavigationDestination(
             icon: Icon(Icons.download_outlined),
