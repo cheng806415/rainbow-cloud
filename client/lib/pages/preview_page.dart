@@ -313,7 +313,7 @@ class _PreviewPageState extends State<PreviewPage> {
       case 'zip': case 'rar': case '7z': case 'tar': case 'gz':
         return Icons.folder_zip;
       case 'txt': case 'md': case 'log':
-        return Icons.text_snippets;
+        return Icons.description;
       default:
         return Icons.insert_drive_file;
     }
