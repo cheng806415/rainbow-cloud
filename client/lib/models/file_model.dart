@@ -85,6 +85,7 @@ class FileModel {
   bool get isAudio => _isTypeIn(['mp3', 'wav', 'ogg', 'm4a', 'flac', 'aac']);
   bool get isVideo => _isTypeIn(['mp4', 'webm', 'flv', 'f4v', 'mov', '3gp', 'avi', 'mkv', 'ts']);
   bool get isPdf => type?.toLowerCase() == 'pdf';
+  bool get isArchive => _isTypeIn(['zip', '7z', 'rar', 'tar', 'gz', 'tgz', 'xz', 'jar']);
 
   String _getIconFromType(String? ext) {
     if (ext == null) return 'insert_drive_file';

@@ -451,6 +451,7 @@ function get_view_type($type){
 	$type_audio = explode('|',$conf['type_audio']);
 	$type_video = explode('|',$conf['type_video']);
 	$type_office = ['doc','docx','xps','rtf','wps','xls','xlsx','ppt','pptx'];
+	$type_archive = ['zip','7z','rar','tgz','gz','xz','tar','jar'];
 	if (in_array($type, $type_image)) {
 		return 'image';
 	}elseif (in_array($type, $type_audio)) {
@@ -461,8 +462,40 @@ function get_view_type($type){
 		return 'office';
 	}elseif ($type == 'pdf') {
 		return 'pdf';
+	}elseif (in_array($type, $type_archive)) {
+		return 'archive';
 	}
 	return false;
+}
+
+function get_archive_list($filepath, $type){
+	$result = [];
+	if($type == 'zip' && class_exists('ZipArchive')){
+		$zip = new ZipArchive;
+		if($zip->open($filepath) === true){
+			for($i = 0; $i < $zip->numFiles; $i++){
+				$stat = $zip->statIndex($i);
+				$name = $stat['name'];
+				if(substr($name, -1) === '/'){
+					$result[] = ['name'=>$name, 'size'=>0, 'is_dir'=>true, 'compressed'=>$stat['comp_size']];
+				}else{
+					$result[] = ['name'=>$name, 'size'=>$stat['size'], 'is_dir'=>false, 'compressed'=>$stat['comp_size']];
+				}
+			}
+			$zip->close();
+		}
+	}elseif($type == 'tar' || $type == 'tgz' || $type == 'gz'){
+		if(function_exists('pharData')){
+			try{
+				$phar = new PharData($filepath);
+				foreach(new RecursiveIteratorIterator($phar, RecursiveIteratorIterator::SELF_FIRST) as $entry){
+					$name = str_replace('phar://'.$filepath.'/', '', $entry->getPathname());
+					$result[] = ['name'=>$name, 'size'=>$entry->getSize(), 'is_dir'=>$entry->isDir(), 'compressed'=>0];
+				}
+			}catch(Exception $e){}
+		}
+	}
+	return $result;
 }
 
 

@@ -29,8 +29,8 @@ if($islogin2 && $row['uid']==$uid || !$islogin2 && isset($_SESSION['fileids']) &
   $is_mine = true;
 }
 
-$view_type = get_view_type($type);
-
+$view_type = get_view_type($type);
+
 if($view_type == 'image'){
   $filetype = 1;
   $title = '<i class="fa fa-picture-o"></i> 图片查看器';
@@ -58,6 +58,12 @@ if($view_type == 'image'){
   $htmlcode = htmlspecialchars('<a href="'.$viewurl.'" target="_blank">'.$name.'</a>');
   $ubbcode = '[url='.$viewurl_all.']'.$name.'[/url]';
   $linktitle = 'PDF链接';
+}elseif($view_type == 'archive'){
+  $filetype = 5;
+  $title = '<i class="fa fa-file-archive-o"></i> 压缩包文件';
+  $htmlcode = htmlspecialchars('<a href="'.$downurl_all.'" target="_blank">'.$name.'</a>');
+  $ubbcode = '[url='.$downurl_all.']'.$name.'[/url]';
+  $linktitle = '下载链接';
 }else{
   $filetype = 0;
   $title = '<i class="fa fa-file"></i> 文件查看';
@@ -114,6 +120,15 @@ if($filetype==1){
 </div>
 <div class="elsetext"><p>'.$name.'（'.size_format($row['size']).'）</p>
 <a href="'.$downurl.'" class="btn btn-raised btn-primary btn-lg"><i class="fa fa-download" aria-hidden="true"></i> 下载文件<div class="ripple-container"></div></a>&nbsp;<a href="pdfview.php?hash='.$hash.'" class="btn btn-raised btn-info btn-lg" target="_blank"><i class="fa fa-eye" aria-hidden="true"></i> 在线预览<div class="ripple-container"></div></a>
+</div>
+</div>';
+}elseif($filetype==5){
+  echo '<div class="view">
+  <div class="elseview">
+  <div class="tubiao"><i class="fa fa-file-archive-o"></i> </div>
+</div>
+<div class="elsetext"><p>'.$name.'（'.size_format($row['size']).'）</p>
+<a href="'.$downurl.'" class="btn btn-raised btn-primary btn-lg"><i class="fa fa-download" aria-hidden="true"></i> 下载文件<div class="ripple-container"></div></a>&nbsp;<button onclick="viewArchive(\''.$hash.'\')" class="btn btn-raised btn-info btn-lg"><i class="fa fa-list" aria-hidden="true"></i> 查看结构<div class="ripple-container"></div></button>
 </div>
 </div>';
 }else{
@@ -316,15 +331,67 @@ function delete_confirm(){
 	  layer.close(confirmobj);
 	});
 }
-$(document).ready(function(){
-  var clipboard = new Clipboard('.copy-btn');
-  clipboard.on('success', function (e) {
-    layer.msg('复制成功！', {icon: 1});
-  });
-  clipboard.on('error', function (e) {
-    layer.msg('复制失败，请长按链接后手动复制', {icon: 2});
-  });
-})
+$(document).ready(function(){
+  var clipboard = new Clipboard('.copy-btn');
+  clipboard.on('success', function (e) {
+    layer.msg('复制成功！', {icon: 1});
+  });
+  clipboard.on('error', function (e) {
+    layer.msg('复制失败，请长按链接后手动复制', {icon: 2});
+  });
+})
+
+function formatSize(bytes){
+    if(bytes==0) return '0 B';
+    var units=['B','KB','MB','GB','TB'];
+    var i=Math.floor(Math.log(bytes)/Math.log(1024));
+    return (bytes/Math.pow(1024,i)).toFixed(2)+' '+units[i];
+}
+
+function viewArchive(hash){
+    var ii = layer.load(2, {shade:[0.1,'#fff']});
+    $.ajax({
+        type: 'GET',
+        url: 'ajax.php?act=archive_list&hash='+hash,
+        dataType: 'json',
+        success: function(data){
+            layer.close(ii);
+            if(data.code != 0){
+                layer.alert(data.msg, {icon: 2});
+                return;
+            }
+            var html = '<div style="padding:10px;">';
+            html += '<p><b>文件名：</b>'+data.name+'</p>';
+            html += '<p><b>格式：</b>'+data.archive_type.toUpperCase()+'&nbsp;&nbsp;<b>解压后大小：</b>'+formatSize(data.total_size)+'&nbsp;&nbsp;<b>文件数：</b>'+data.file_count+'&nbsp;&nbsp;<b>文件夹数：</b>'+data.dir_count+'</p>';
+            html += '<hr style="margin:10px 0;"/>';
+            html += '<div style="max-height:400px;overflow-y:auto;">';
+            html += '<table class="table table-striped table-condensed" style="margin-bottom:0;">';
+            html += '<thead><tr><th>名称</th><th style="width:100px;">大小</th><th style="width:100px;">压缩后</th></tr></thead>';
+            html += '<tbody>';
+            for(var i=0;i<data.list.length;i++){
+                var item = data.list[i];
+                var icon = item.is_dir ? '<i class="fa fa-folder" style="color:#f0ad4e;"></i> ' : '<i class="fa fa-file-o" style="color:#337ab7;"></i> ';
+                var indent = (item.name.split('/').length - 1) * 16;
+                var displayName = item.name.split('/').pop() || item.name.split('/').slice(-2,-1)[0] + '/';
+                var sizeText = item.is_dir ? '-' : formatSize(item.size);
+                var compText = item.compressed > 0 ? formatSize(item.compressed) : '-';
+                html += '<tr><td style="padding-left:'+(10+indent)+'px;">'+icon+displayName+'</td><td>'+sizeText+'</td><td>'+compText+'</td></tr>';
+            }
+            html += '</tbody></table></div></div>';
+            layer.open({
+                type: 1,
+                title: '压缩包结构',
+                area: ['600px', '520px'],
+                shadeClose: true,
+                content: html
+            });
+        },
+        error: function(){
+            layer.close(ii);
+            layer.msg('服务器错误', {icon: 2});
+        }
+    });
+}
 </script>
 </body>
 </html>

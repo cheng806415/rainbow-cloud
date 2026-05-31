@@ -3,6 +3,8 @@ import 'package:photo_view/photo_view.dart';
 import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
 import '../models/file_model.dart';
+import '../utils/api_client.dart';
+import '../utils/app_logger.dart';
 
 class PreviewPage extends StatefulWidget {
   final FileModel file;
@@ -17,12 +19,18 @@ class _PreviewPageState extends State<PreviewPage> {
   ChewieController? _chewieController;
   bool _isLoading = true;
   String? _error;
+  List<Map<String, dynamic>>? _archiveList;
+  Map<String, dynamic>? _archiveInfo;
 
   @override
   void initState() {
     super.initState();
     if (widget.file.isVideo) {
       _initVideo();
+    } else if (widget.file.isArchive) {
+      _initArchive();
+    } else {
+      _isLoading = false;
     }
   }
 
@@ -43,6 +51,30 @@ class _PreviewPageState extends State<PreviewPage> {
       setState(() {
         _isLoading = false;
         _error = '视频加载失败: $e';
+      });
+    }
+  }
+
+  Future<void> _initArchive() async {
+    try {
+      final data = await ApiClient().getArchiveList(widget.file.hash);
+      if (data != null && data['code'] == 0) {
+        setState(() {
+          _archiveInfo = data;
+          _archiveList = (data['list'] as List).cast<Map<String, dynamic>>();
+          _isLoading = false;
+        });
+      } else {
+        setState(() {
+          _isLoading = false;
+          _error = data?['msg'] ?? '无法读取压缩包结构';
+        });
+      }
+    } catch (e) {
+      AppLogger().e('Preview', 'archive load error: $e');
+      setState(() {
+        _isLoading = false;
+        _error = '读取压缩包结构失败: $e';
       });
     }
   }
@@ -169,6 +201,16 @@ class _PreviewPageState extends State<PreviewPage> {
       );
     }
 
+    if (widget.file.isArchive) {
+      if (_isLoading) {
+        return const Center(child: CircularProgressIndicator());
+      }
+      if (_error != null) {
+        return _buildErrorView(_error!);
+      }
+      return _buildArchiveView();
+    }
+
     return _buildErrorView('不支持预览该文件格式');
   }
 
@@ -189,5 +231,98 @@ class _PreviewPageState extends State<PreviewPage> {
         ],
       ),
     );
+  }
+
+  Widget _buildArchiveView() {
+    final info = _archiveInfo!;
+    final list = _archiveList!;
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(16),
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+          child: Row(
+            children: [
+              Icon(Icons.folder_zip, size: 40, color: Colors.orange[400]),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(info['name'] ?? widget.file.name, style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${info['archive_type'].toString().toUpperCase()} | '
+                      '解压后: ${_formatBytes(info['total_size'] ?? 0)} | '
+                      '${info['file_count']} 个文件, ${info['dir_count']} 个文件夹',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: ListView.builder(
+            itemCount: list.length,
+            itemBuilder: (context, index) {
+              final item = list[index];
+              final name = item['name'] as String;
+              final isDir = item['is_dir'] == true;
+              final size = item['size'] as int? ?? 0;
+              final depth = '/'.allMatches(name).length;
+              final displayName = name.split('/').last.isNotEmpty
+                  ? name.split('/').last
+                  : name.split('/').where((s) => s.isNotEmpty).last + '/';
+              return ListTile(
+                dense: true,
+                contentPadding: EdgeInsets.only(left: 16.0 + depth * 16.0, right: 16),
+                leading: Icon(
+                  isDir ? Icons.folder : _getFileIcon(displayName),
+                  size: 20,
+                  color: isDir ? Colors.orange[400] : Colors.grey[500],
+                ),
+                title: Text(displayName, style: const TextStyle(fontSize: 13)),
+                trailing: isDir
+                    ? null
+                    : Text(_formatBytes(size), style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  IconData _getFileIcon(String name) {
+    final ext = name.contains('.') ? name.split('.').last.toLowerCase() : '';
+    switch (ext) {
+      case 'png': case 'jpg': case 'jpeg': case 'gif': case 'bmp': case 'webp': case 'svg':
+        return Icons.image;
+      case 'mp3': case 'wav': case 'ogg': case 'flac': case 'aac':
+        return Icons.audiotrack;
+      case 'mp4': case 'avi': case 'mkv': case 'mov': case 'webm':
+        return Icons.videocam;
+      case 'pdf':
+        return Icons.picture_as_pdf;
+      case 'doc': case 'docx':
+        return Icons.description;
+      case 'xls': case 'xlsx':
+        return Icons.table_chart;
+      case 'zip': case 'rar': case '7z': case 'tar': case 'gz':
+        return Icons.folder_zip;
+      case 'txt': case 'md': case 'log':
+        return Icons.text_snippets;
+      default:
+        return Icons.insert_drive_file;
+    }
+  }
+
+  String _formatBytes(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    if (bytes < 1024 * 1024 * 1024) return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
   }
 }

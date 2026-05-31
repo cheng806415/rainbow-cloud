@@ -619,6 +619,30 @@ case 'permanentDelete':
 	$DB->exec("DELETE FROM pre_file WHERE id=:id", [':id'=>$row['id']]);
 	exit('{"code":0,"msg":"彻底删除成功"}');
 break;
+case 'archive_list':
+	$hash = trim(daddslashes($_GET['hash']));
+	$row = $DB->getRow("SELECT * FROM pre_file WHERE hash=:hash", [':hash'=>$hash]);
+	if(!$row) exit(json_encode(['code'=>-1,'msg'=>'文件不存在']));
+	$type = $row['type'];
+	$type_archive = ['zip','tar','tgz','gz'];
+	if(!in_array($type, $type_archive)) exit(json_encode(['code'=>-1,'msg'=>'不支持的压缩包格式，仅支持ZIP和TAR格式']));
+	if($conf['storage'] != 'local') exit(json_encode(['code'=>-1,'msg'=>'仅支持本地存储的压缩包查看']));
+	$filepath = !empty($conf['filepath']) ? rtrim($conf['filepath'], '/') . '/' . $row['hash'] : ROOT . 'file/' . $row['hash'];
+	if(!file_exists($filepath)) exit(json_encode(['code'=>-1,'msg'=>'文件不存在于本地存储']));
+	$list = get_archive_list($filepath, $type);
+	$total_size = 0;
+	$file_count = 0;
+	$dir_count = 0;
+	foreach($list as $item){
+		if(!$item['is_dir']){
+			$total_size += $item['size'];
+			$file_count++;
+		}else{
+			$dir_count++;
+		}
+	}
+	exit(json_encode(['code'=>0,'name'=>$row['name'],'archive_type'=>$type,'total_size'=>$total_size,'file_count'=>$file_count,'dir_count'=>$dir_count,'list'=>$list]));
+break;
 
 default:
 

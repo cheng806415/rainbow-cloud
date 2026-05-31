@@ -183,6 +183,18 @@ class ApiClient {
     return await _dio.download(url, savePath, onReceiveProgress: onReceiveProgress);
   }
 
+  Future<Map<String, dynamic>?> getArchiveList(String hash) async {
+    try {
+      final response = await _dio.get('/ajax.php', queryParameters: {'act': 'archive_list', 'hash': hash});
+      AppLogger().d('ApiClient', 'getArchiveList response: ${response.data}');
+      final data = _safeResponse(response);
+      if (data['code'] == 0) return data;
+    } catch (e) {
+      AppLogger().e('ApiClient', 'getArchiveList error: $e');
+    }
+    return null;
+  }
+
   String getFileUrl(FileModel file) {
     return '$_baseUrl/view.php/${file.hash}.${file.type ?? ''}';
   }

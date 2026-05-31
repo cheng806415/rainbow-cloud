@@ -102,7 +102,7 @@ class _FileListPageState extends State<FileListPage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (file.isImage || file.isVideo || file.isAudio || file.isPdf)
+            if (file.isImage || file.isVideo || file.isAudio || file.isPdf || file.isArchive)
               ListTile(
                 leading: const Icon(Icons.visibility),
                 title: const Text('预览'),
@@ -369,7 +369,7 @@ class _FileListPageState extends State<FileListPage> {
                               )
                             : PopupMenuButton(
                                 itemBuilder: (context) => [
-                                  if (file.isImage || file.isVideo || file.isAudio || file.isPdf)
+                                  if (file.isImage || file.isVideo || file.isAudio || file.isPdf || file.isArchive)
                                     const PopupMenuItem(value: 'preview', child: ListTile(
                                       leading: Icon(Icons.visibility, size: 20), title: Text('预览'), contentPadding: EdgeInsets.zero,
                                     )),
