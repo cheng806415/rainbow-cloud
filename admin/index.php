@@ -103,7 +103,61 @@ $checkupdate = '//auth.cccyun.cc/app/pan.php?ver='.VERSION;
                     </div>
                 </div>
             </div>
-            <!-- /.row -->
+            <!-- /.row -->
+        <div class="row">
+            <div class="col-md-6 col-sm-12">
+                <div class="panel panel-info">
+                    <div class="panel-heading">
+                        <h3 class="panel-title"><i class="fa fa-hdd-o"></i> 存储空间</h3>
+                    </div>
+                    <ul class="list-group">
+                        <li class="list-group-item">
+                            <b>磁盘总容量：</b><span id="disk_total">--</span>
+                        </li>
+                        <li class="list-group-item">
+                            <b>已使用：</b><span id="disk_used">--</span>
+                            <div class="progress" style="margin-bottom:0;margin-top:5px;height:20px;">
+                                <div id="disk_bar" class="progress-bar progress-bar-primary" role="progressbar" style="width:0%">
+                                    <span id="disk_percent">0%</span>
+                                </div>
+                            </div>
+                        </li>
+                        <li class="list-group-item">
+                            <b>剩余可用：</b><span id="disk_free">--</span>
+                        </li>
+                        <li class="list-group-item">
+                            <b>文件占用：</b><span id="file_storage">--</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            <div class="col-md-6 col-sm-12">
+                <div class="panel panel-info">
+                    <div class="panel-heading">
+                        <h3 class="panel-title"><i class="fa fa-database"></i> 数据库空间</h3>
+                    </div>
+                    <ul class="list-group">
+                        <li class="list-group-item">
+                            <b>数据库名称：</b><?php echo $dbconfig['dbname']; ?>
+                        </li>
+                        <li class="list-group-item">
+                            <b>数据库大小：</b><span id="db_size">--</span>
+                        </li>
+                        <li class="list-group-item">
+                            <b>数据表数量：</b><span id="db_tables">--</span>
+                        </li>
+                        <li class="list-group-item">
+                            <b>占磁盘比：</b>
+                            <div class="progress" style="margin-bottom:0;margin-top:5px;height:20px;">
+                                <div id="db_bar" class="progress-bar progress-bar-warning" role="progressbar" style="width:0%">
+                                    <span id="db_percent">0%</span>
+                                </div>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
         <div class="row">
             <div class="col-md-8 col-sm-12">
                 <div class="panel panel-info">
@@ -145,29 +199,63 @@ $checkupdate = '//auth.cccyun.cc/app/pan.php?ver='.VERSION;
         </div>
     </div>
 </div>
-<script>
-$(document).ready(function(){
-    $.ajax({
-        type : "GET",
-        url : "ajax.php?act=getcount",
-        dataType : 'json',
-        async: true,
+<script>
+function formatSize(bytes){
+    if(bytes==0) return '0 B';
+    var units=['B','KB','MB','GB','TB'];
+    var i=Math.floor(Math.log(bytes)/Math.log(1024));
+    return (bytes/Math.pow(1024,i)).toFixed(2)+' '+units[i];
+}
+$(document).ready(function(){
+    $.ajax({
+        type : "GET",
+        url : "ajax.php?act=getcount",
+        dataType : 'json',
+        async: true,
         success : function(data) {
             $('#count1').html(data.count1);
             $('#count2').html(data.count2);
             $('#count3').html(data.count3);
             $('#count4').html(data.count4);
-            $('#count5').html(data.count5);
-            $.ajax({
-                url: '<?php echo $checkupdate?>',
-                type: 'get',
-                dataType: 'jsonp',
-                jsonpCallback: 'callback'
-            }).done(function(data){
-                $("#checkupdate").html(data.msg);
-            })
-        }
-    })
+            $('#count5').html(data.count5);
+            $.ajax({
+                url: '<?php echo $checkupdate?>',
+                type: 'get',
+                dataType: 'jsonp',
+                jsonpCallback: 'callback'
+            }).done(function(data){
+                $("#checkupdate").html(data.msg);
+            })
+        }
+    });
+    $.ajax({
+        type: "GET",
+        url: "ajax.php?act=getSpaceInfo",
+        dataType: 'json',
+        async: true,
+        success: function(data) {
+            if(data.code == 0){
+                var disk = data.disk;
+                $('#disk_total').text(formatSize(disk.total));
+                $('#disk_used').text(formatSize(disk.used));
+                $('#disk_free').text(formatSize(disk.free));
+                $('#file_storage').text(formatSize(data.fileStorage));
+                var diskPercent = disk.total > 0 ? (disk.used / disk.total * 100).toFixed(1) : 0;
+                $('#disk_bar').css('width', diskPercent + '%');
+                $('#disk_percent').text(diskPercent + '%');
+                if(diskPercent > 90){
+                    $('#disk_bar').removeClass('progress-bar-primary').addClass('progress-bar-danger');
+                }else if(diskPercent > 70){
+                    $('#disk_bar').removeClass('progress-bar-primary').addClass('progress-bar-warning');
+                }
+                $('#db_size').text(formatSize(data.db.size));
+                $('#db_tables').text(data.db.tables);
+                var dbPercent = disk.total > 0 ? (data.db.size / disk.total * 100).toFixed(2) : 0;
+                $('#db_bar').css('width', Math.min(dbPercent, 100) + '%');
+                $('#db_percent').text(dbPercent + '%');
+            }
+        }
+    });
 })
 </script>
 <script>

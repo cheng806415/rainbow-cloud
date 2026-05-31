@@ -179,6 +179,42 @@ case 'delFolder':
 	if($DB->exec($sql))exit('{"code":0,"msg":"删除文件夹成功！"}');
 	else exit('{"code":-1,"msg":"删除文件夹失败['.$DB->error().']"}');
 break;
+case 'getSpaceInfo':
+	$filepath = !empty($conf['filepath']) ? $conf['filepath'] : ROOT.'file';
+	$filepath = rtrim($filepath, '/');
+	$diskTotal = @disk_total_space($filepath);
+	$diskFree = @disk_free_space($filepath);
+	$diskUsed = $diskTotal !== false && $diskFree !== false ? $diskTotal - $diskFree : 0;
+	$fileSize = 0;
+	if(is_dir($filepath)){
+		$iter = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($filepath, FilesystemIterator::SKIP_DOTS));
+		foreach($iter as $f){
+			$fileSize += $f->getSize();
+		}
+	}
+	$dbSize = 0;
+	$dbName = $dbconfig['dbname'];
+	$dbSizeRow = $DB->getRow("SELECT SUM(data_length + index_length) AS total_size FROM information_schema.TABLES WHERE table_schema=:dbname", [':dbname'=>$dbName]);
+	if($dbSizeRow && isset($dbSizeRow['total_size'])){
+		$dbSize = $dbSizeRow['total_size'];
+	}
+	$dbTables = intval($DB->getColumn("SELECT COUNT(*) FROM information_schema.TABLES WHERE table_schema=:dbname", [':dbname'=>$dbName]));
+
+	$result = [
+		"code" => 0,
+		"disk" => [
+			"total" => $diskTotal !== false ? $diskTotal : 0,
+			"used" => $diskUsed,
+			"free" => $diskFree !== false ? $diskFree : 0,
+		],
+		"fileStorage" => $fileSize,
+		"db" => [
+			"size" => $dbSize,
+			"tables" => $dbTables,
+		],
+	];
+	exit(json_encode($result));
+break;
 default:
 	exit('{"code":-4,"msg":"No Act"}');
 break;
