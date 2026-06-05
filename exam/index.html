@@ -22,8 +22,17 @@ body{background:#fff;color:#000;font-family:"Microsoft YaHei",sans-serif;min-hei
 .form-row select:hover{background:#f5f5f5}
 .time-row select{width:80px;padding:10px;font-size:16px;border:2px solid #000;background:#fff;outline:none;font-family:"Microsoft YaHei",sans-serif;text-align:center;cursor:pointer;-webkit-appearance:none;appearance:none}
 .time-row select:hover{background:#f5f5f5}
-.time-row{display:flex;gap:10px;align-items:flex-end;justify-content:center}
+.time-row{display:flex;gap:8px;align-items:flex-end;justify-content:center;flex-wrap:wrap}
+.time-row.col{flex-direction:column;align-items:stretch;max-width:260px;margin:0 auto}
 .time-sep{font-size:24px;font-weight:bold;padding-bottom:2px}
+.mode-toggle{display:flex;gap:0;margin-bottom:18px;border:2px solid #000}
+.mode-toggle button{flex:1;background:#fff;color:#000;border:none;padding:10px;font-size:14px;cursor:pointer;font-family:"Microsoft YaHei",sans-serif;letter-spacing:1px;font-weight:bold;border-right:2px solid #000}
+.mode-toggle button:last-child{border-right:none}
+.mode-toggle button.active{background:#000;color:#fff}
+.mode-toggle button:hover:not(.active){background:#f5f5f5}
+.checkbox-row{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.checkbox-row input[type=checkbox]{width:18px;height:18px;cursor:pointer}
+.checkbox-row label{cursor:pointer;margin:0;font-weight:normal;font-size:14px}
 .btn{background:#000;color:#fff;border:none;padding:12px 30px;font-size:16px;cursor:pointer;width:100%;margin-top:10px;letter-spacing:2px;font-family:"Microsoft YaHei",sans-serif}
 .btn:hover{background:#333}
 .btn-outline{background:#fff;color:#000;border:2px solid #000;margin-top:8px}
@@ -67,20 +76,44 @@ body{background:#fff;color:#000;font-family:"Microsoft YaHei",sans-serif;min-hei
 <div class="main" id="main">
 <div class="config-section" id="config">
   <h2>设置考试</h2>
-  <div class="form-group">
+  <div class="mode-toggle">
+    <button id="modeStartBtn" class="active" onclick="switchMode('start')">设置开始时间</button>
+    <button id="modeEndBtn" onclick="switchMode('end')">设置结束时间</button>
+    <button id="modeNowBtn" onclick="switchMode('now')">立即开始</button>
+  </div>
+
+  <div class="form-group" id="startTimeGroup">
     <label>考试开始时间</label>
     <div class="time-row">
       <select id="hSelect"></select>
       <div class="time-sep">:</div>
       <select id="mSelect"></select>
+      <div class="time-sep">:</div>
+      <select id="sSelect"></select>
     </div>
   </div>
-  <div class="form-group">
-    <label>考试时长</label>
+
+  <div class="form-group" id="endTimeGroup" style="display:none">
+    <label>考试结束时间</label>
+    <div class="time-row">
+      <select id="ehSelect"></select>
+      <div class="time-sep">:</div>
+      <select id="emSelect"></select>
+      <div class="time-sep">:</div>
+      <select id="esSelect"></select>
+    </div>
+    <div class="time-row" style="margin-top:8px;font-size:12px;color:#666">
+      考试时长自动计算
+    </div>
+  </div>
+
+  <div class="form-group" id="durationGroup">
+    <label id="durationLabel">考试时长</label>
     <div class="time-row" style="max-width:160px;margin:0 auto">
       <select id="dSelect"></select>
     </div>
   </div>
+
   <button class="btn" onclick="saveConfig()">开始计时</button>
 </div>
 </div>
@@ -167,7 +200,8 @@ body{background:#fff;color:#000;font-family:"Microsoft YaHei",sans-serif;min-hei
 <script>
 var timer,examData=null,sD=120;
 var now=new Date();
-var sH=now.getHours(),sM=now.getMinutes();
+var sH=now.getHours(),sM=now.getMinutes(),sS=0;
+var currentMode='start';
 
 var defaultSettings={
     fontSize:120,fontColor:'#000000',bgColor:'#ffffff',position:'center',
@@ -272,6 +306,7 @@ function toggleSettings(){
 
 function buildSelect(id,max,init){
     var el=document.getElementById(id);
+    if(!el)return;
     el.innerHTML='';
     for(var i=0;i<=max;i++){
         var o=document.createElement('option');
@@ -285,30 +320,82 @@ function buildSelect(id,max,init){
 function readSelects(){
     sH=parseInt(document.getElementById('hSelect').value);
     sM=parseInt(document.getElementById('mSelect').value);
+    sS=parseInt(document.getElementById('sSelect').value);
     sD=parseInt(document.getElementById('dSelect').value);
+}
+
+function readEndSelects(){
+    var eh=parseInt(document.getElementById('ehSelect').value);
+    var em=parseInt(document.getElementById('emSelect').value);
+    var es=parseInt(document.getElementById('esSelect').value);
+    return {h:eh,m:em,s:es};
 }
 
 function initSelects(){
     buildSelect('hSelect',23,sH);
     buildSelect('mSelect',59,sM);
+    buildSelect('sSelect',59,sS);
     buildSelect('dSelect',180,sD);
+    // 结束时间默认下一小时
+    var eH=(sH+1)%24;
+    buildSelect('ehSelect',23,eH);
+    buildSelect('emSelect',59,sM);
+    buildSelect('esSelect',59,sS);
+}
+
+function switchMode(mode){
+    currentMode=mode;
+    document.getElementById('modeStartBtn').classList.toggle('active',mode==='start');
+    document.getElementById('modeEndBtn').classList.toggle('active',mode==='end');
+    document.getElementById('modeNowBtn').classList.toggle('active',mode==='now');
+    document.getElementById('startTimeGroup').style.display=(mode==='start')?'block':'none';
+    document.getElementById('endTimeGroup').style.display=(mode==='end')?'block':'none';
+    document.getElementById('durationGroup').style.display=(mode==='now')?'none':'block';
+    document.getElementById('durationLabel').textContent=(mode==='end')?'考试时长（自动计算）':'考试时长';
 }
 
 function calcStart(){
     var now=new Date();
-    var target=new Date(now.getFullYear(),now.getMonth(),now.getDate(),sH,sM,0,0);
+    var target=new Date(now.getFullYear(),now.getMonth(),now.getDate(),sH,sM,sS,0);
     if(target.getTime()<=now.getTime()){
         target.setDate(target.getDate()+1);
     }
     return target.getTime();
 }
 
+function calcEndFromMode(){
+    var now=new Date();
+    if(currentMode==='now'){
+        readSelects();
+        var startTime=now.getTime();
+        var durMs=sD*60000;
+        if(durMs<=0){alert('请设置有效的考试时长');return null;}
+        return {start:startTime,end:startTime+durMs,totalMin:sD,hour:sH,min:sM,sec:sS,mode:'now'};
+    }else if(currentMode==='end'){
+        var t=readEndSelects();
+        var endTime=new Date(now.getFullYear(),now.getMonth(),now.getDate(),t.h,t.m,t.s,0);
+        if(endTime.getTime()<=now.getTime()){
+            endTime.setDate(endTime.getDate()+1);
+        }
+        var startTime=now.getTime();
+        var durMs=endTime.getTime()-startTime;
+        if(durMs<=0){alert('结束时间必须晚于当前时间');return null;}
+        var totalMin=Math.floor(durMs/60000);
+        var usedSec=durMs%60000;
+        return {start:startTime,end:endTime.getTime(),totalMin:totalMin,hour:t.h,min:t.m,sec:t.s,mode:'end'};
+    }else{
+        readSelects();
+        var start=calcStart();
+        var durMs=sD*60000;
+        if(durMs<=0){alert('请设置有效的考试时长');return null;}
+        return {start:start,end:start+durMs,totalMin:sD,hour:sH,min:sM,sec:sS,mode:'start'};
+    }
+}
+
 function saveConfig(){
-    readSelects();
-    var start=calcStart();
-    var durMs=sD*60000;
-    if(durMs<=0){alert('请设置有效的考试时长');return;}
-    examData={start:start,end:start+durMs,totalMin:sD,hour:sH,min:sM};
+    var result=calcEndFromMode();
+    if(!result)return;
+    examData=result;
     localStorage.setItem('exam',JSON.stringify(examData));
     showCountdown();
 }
@@ -361,10 +448,10 @@ function updateTimer(){
     var cd=document.getElementById('countdownDisplay');
     var style=getPositionStyle();
     var html='<div style="text-align:center">';
-    
+
     if(diff>0){
         var h=Math.floor(diff/3600000),m=Math.floor((diff%3600000)/60000),s=Math.floor((diff%60000)/1000);
-        var timeStr=pad(examData.hour)+':'+pad(examData.min);
+        var timeStr=pad(examData.hour)+':'+pad(examData.min)+':'+pad(examData.sec||0);
         if(ui.showWait)html+='<div class="status-badge status-wait">'+ui.waitLabel+'</div>';
         html+='<div class="countdown-time" style="font-size:'+ui.fontSize+'px;color:'+ui.fontColor+'">'+pad(h)+':'+pad(m)+':'+pad(s)+'</div>';
         var info='';
@@ -374,7 +461,9 @@ function updateTimer(){
     }else if(now<examData.end){
         var remain=examData.end-now;
         var rh=Math.floor(remain/3600000),rm=Math.floor((remain%3600000)/60000),rs=Math.floor((remain%60000)/1000);
-        var elapsed=Math.round((now-examData.start)/60000);
+        var elapsedMs=now-examData.start;
+        var elapsed=Math.floor(elapsedMs/60000);
+        var elapsedSec=Math.floor((elapsedMs%60000)/1000);
         var remainSec=Math.round(remain/1000);
         var wt='';
         if(remainSec<=ui.flashSec){
@@ -399,9 +488,9 @@ function updateTimer(){
         }
         if(wt&&ui.showWarning)html+='<div style="margin-top:10px;font-size:18px;font-weight:bold;color:'+ui.fontColor+'">'+wt+'</div>';
         var info='';
-        if(ui.showElapsed)info+='<div class="exam-info" style="color:'+ui.labelColor+'">已用时 <span style="color:'+ui.fontColor+'">'+elapsed+' 分钟</span></div>';
+        if(ui.showElapsed)info+='<div class="exam-info" style="color:'+ui.labelColor+'">已用时 <span style="color:'+ui.fontColor+'">'+elapsed+' 分 '+pad(elapsedSec)+' 秒</span></div>';
         if(ui.showDur)info+='<div class="exam-info" style="color:'+ui.labelColor+'">考试时长 <span style="color:'+ui.fontColor+'">'+examData.totalMin+' 分钟</span></div>';
-        if(ui.showEndTime)info+='<div class="exam-info" style="color:'+ui.labelColor+'">结束时间 <span style="color:'+ui.fontColor+'">'+new Date(examData.end).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})+'</span></div>';
+        if(ui.showEndTime)info+='<div class="exam-info" style="color:'+ui.labelColor+'">结束时间 <span style="color:'+ui.fontColor+'">'+new Date(examData.end).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'})+'</span></div>';
         if(info)html+='<div style="margin-top:8px">'+info+'</div>';
     }else{
         html+='<div style="font-size:24px;font-weight:bold;color:'+ui.fontColor+';margin-bottom:15px">考试已结束</div>';
