@@ -33,6 +33,16 @@ body{background:#fff;color:#000;font-family:"Microsoft YaHei",sans-serif;min-hei
 .checkbox-row{display:flex;align-items:center;gap:8px;margin-bottom:12px}
 .checkbox-row input[type=checkbox]{width:18px;height:18px;cursor:pointer}
 .checkbox-row label{cursor:pointer;margin:0;font-weight:normal;font-size:14px}
+.schedule-item{border:2px solid #000;padding:10px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.schedule-item-info{flex:1;min-width:0}
+.schedule-item-name{font-weight:bold;font-size:15px;margin-bottom:4px}
+.schedule-item-time{font-size:12px;color:#666;font-family:monospace}
+.schedule-item-actions{display:flex;gap:5px;flex-shrink:0}
+.schedule-item-btn{background:#fff;color:#000;border:1px solid #000;padding:4px 10px;cursor:pointer;font-size:12px;font-family:"Microsoft YaHei",sans-serif}
+.schedule-item-btn:hover{background:#000;color:#fff}
+.schedule-item-btn.danger{border-color:#c00;color:#c00}
+.schedule-item-btn.danger:hover{background:#c00;color:#fff}
+.schedule-empty{text-align:center;color:#999;padding:20px;font-size:13px}
 .btn{background:#000;color:#fff;border:none;padding:12px 30px;font-size:16px;cursor:pointer;width:100%;margin-top:10px;letter-spacing:2px;font-family:"Microsoft YaHei",sans-serif}
 .btn:hover{background:#333}
 .btn-outline{background:#fff;color:#000;border:2px solid #000;margin-top:8px}
@@ -79,42 +89,87 @@ body{background:#fff;color:#000;font-family:"Microsoft YaHei",sans-serif;min-hei
   <div class="mode-toggle">
     <button id="modeStartBtn" class="active" onclick="switchMode('start')">设置开始时间</button>
     <button id="modeEndBtn" onclick="switchMode('end')">设置结束时间</button>
-    <button id="modeNowBtn" onclick="switchMode('now')">立即开始</button>
+    <button id="modeScheduleBtn" onclick="switchMode('schedule')">考试日程</button>
   </div>
 
   <div class="form-group" id="startTimeGroup">
     <label>考试开始时间</label>
     <div class="time-row">
-      <select id="hSelect"></select>
+      <select id="hSelect" onchange="updateDurationDisplay()"></select>
       <div class="time-sep">:</div>
-      <select id="mSelect"></select>
+      <select id="mSelect" onchange="updateDurationDisplay()"></select>
       <div class="time-sep">:</div>
-      <select id="sSelect"></select>
+      <select id="sSelect" onchange="updateDurationDisplay()"></select>
     </div>
   </div>
 
   <div class="form-group" id="endTimeGroup" style="display:none">
     <label>考试结束时间</label>
     <div class="time-row">
-      <select id="ehSelect"></select>
+      <select id="ehSelect" onchange="updateDurationDisplay()"></select>
       <div class="time-sep">:</div>
-      <select id="emSelect"></select>
+      <select id="emSelect" onchange="updateDurationDisplay()"></select>
       <div class="time-sep">:</div>
-      <select id="esSelect"></select>
-    </div>
-    <div class="time-row" style="margin-top:8px;font-size:12px;color:#666">
-      考试时长自动计算
+      <select id="esSelect" onchange="updateDurationDisplay()"></select>
     </div>
   </div>
 
   <div class="form-group" id="durationGroup">
-    <label id="durationLabel">考试时长</label>
-    <div class="time-row" style="max-width:160px;margin:0 auto">
-      <select id="dSelect"></select>
-    </div>
+    <label>考试时长（自动计算）</label>
+    <div id="durationDisplay" style="padding:10px;border:2px solid #000;background:#f5f5f5;font-size:16px;font-weight:bold;text-align:center;font-family:monospace">--</div>
   </div>
 
-  <button class="btn" onclick="saveConfig()">开始计时</button>
+  <div class="form-group" id="scheduleGroup" style="display:none">
+    <label>考试日程</label>
+    <div id="scheduleSummary" style="padding:10px;border:2px solid #000;background:#f5f5f5;font-size:13px;min-height:60px;margin-bottom:10px"></div>
+    <button class="btn btn-outline" onclick="openScheduleEditor()">编辑日程</button>
+    <button class="btn" style="margin-top:8px" onclick="startSchedule()">一键开始日程</button>
+  </div>
+
+  <button class="btn" id="startBtn" onclick="saveConfig()">开始计时</button>
+</div>
+
+<!-- 考试日程编辑界面 -->
+<div class="config-section" id="scheduleEditor" style="display:none">
+  <h2>考试日程</h2>
+  <div id="scheduleList" style="margin-bottom:15px;max-height:50vh;overflow-y:auto"></div>
+  <button class="btn" onclick="addScheduleItem()">添加科目</button>
+  <button class="btn btn-outline" style="margin-top:8px" onclick="closeScheduleEditor()">返回</button>
+</div>
+
+<!-- 科目编辑界面 -->
+<div class="config-section" id="itemEditor" style="display:none">
+  <h2 id="itemEditorTitle">添加科目</h2>
+  <div class="form-group">
+    <label>科目名称</label>
+    <input type="text" id="itemName" placeholder="例如：语文" style="width:100%;padding:10px;border:2px solid #000;font-size:14px;outline:none;font-family:'Microsoft YaHei',sans-serif">
+  </div>
+  <div class="form-group">
+    <label>考试日期</label>
+    <input type="date" id="itemDate" style="width:100%;padding:10px;border:2px solid #000;font-size:14px;outline:none;font-family:'Microsoft YaHei',sans-serif">
+  </div>
+  <div class="form-group">
+    <label>开始时间</label>
+    <div class="time-row">
+      <select id="itemH" onchange="updateItemDuration()"></select>
+      <div class="time-sep">:</div>
+      <select id="itemM" onchange="updateItemDuration()"></select>
+    </div>
+  </div>
+  <div class="form-group">
+    <label>结束时间</label>
+    <div class="time-row">
+      <select id="itemEH" onchange="updateItemDuration()"></select>
+      <div class="time-sep">:</div>
+      <select id="itemEM" onchange="updateItemDuration()"></select>
+    </div>
+  </div>
+  <div class="form-group">
+    <label>考试时长（自动计算）</label>
+    <div id="itemDuration" style="padding:10px;border:2px solid #000;background:#f5f5f5;font-size:16px;font-weight:bold;text-align:center;font-family:monospace">--</div>
+  </div>
+  <button class="btn" id="itemSaveBtn" onclick="saveScheduleItem()">保存科目</button>
+  <button class="btn btn-outline" style="margin-top:8px" onclick="cancelItemEdit()">取消</button>
 </div>
 </div>
 <div id="countdownDisplay" class="countdown-display" style="display:none;text-align:center"></div>
@@ -198,10 +253,12 @@ body{background:#fff;color:#000;font-family:"Microsoft YaHei",sans-serif;min-hei
   <button class="btn btn-sm btn-outline" style="margin-top:8px" onclick="resetSettings()">恢复默认</button>
 </div>
 <script>
-var timer,examData=null,sD=120;
+var timer,examData=null;
 var now=new Date();
 var sH=now.getHours(),sM=now.getMinutes(),sS=0;
 var currentMode='start';
+var schedules=[];  // 考试日程数组
+var editingItemIndex=-1;  // -1表示新增，>=0表示编辑
 
 var defaultSettings={
     fontSize:120,fontColor:'#000000',bgColor:'#ffffff',position:'center',
@@ -317,41 +374,72 @@ function buildSelect(id,max,init){
     }
 }
 
-function readSelects(){
-    sH=parseInt(document.getElementById('hSelect').value);
-    sM=parseInt(document.getElementById('mSelect').value);
-    sS=parseInt(document.getElementById('sSelect').value);
-    sD=parseInt(document.getElementById('dSelect').value);
-}
-
-function readEndSelects(){
-    var eh=parseInt(document.getElementById('ehSelect').value);
-    var em=parseInt(document.getElementById('emSelect').value);
-    var es=parseInt(document.getElementById('esSelect').value);
-    return {h:eh,m:em,s:es};
-}
-
 function initSelects(){
     buildSelect('hSelect',23,sH);
     buildSelect('mSelect',59,sM);
     buildSelect('sSelect',59,sS);
-    buildSelect('dSelect',180,sD);
-    // 结束时间默认下一小时
-    var eH=(sH+1)%24;
+    var eH=(sH+2)%24;
     buildSelect('ehSelect',23,eH);
     buildSelect('emSelect',59,sM);
     buildSelect('esSelect',59,sS);
+    // 科目编辑
+    buildSelect('itemH',23,9);
+    buildSelect('itemM',59,0);
+    buildSelect('itemEH',23,11);
+    buildSelect('itemEM',59,30);
 }
 
 function switchMode(mode){
     currentMode=mode;
     document.getElementById('modeStartBtn').classList.toggle('active',mode==='start');
     document.getElementById('modeEndBtn').classList.toggle('active',mode==='end');
-    document.getElementById('modeNowBtn').classList.toggle('active',mode==='now');
+    document.getElementById('modeScheduleBtn').classList.toggle('active',mode==='schedule');
     document.getElementById('startTimeGroup').style.display=(mode==='start')?'block':'none';
     document.getElementById('endTimeGroup').style.display=(mode==='end')?'block':'none';
-    document.getElementById('durationGroup').style.display=(mode==='now')?'none':'block';
-    document.getElementById('durationLabel').textContent=(mode==='end')?'考试时长（自动计算）':'考试时长';
+    document.getElementById('durationGroup').style.display=(mode==='schedule')?'none':'block';
+    document.getElementById('scheduleGroup').style.display=(mode==='schedule')?'block':'none';
+    document.getElementById('startBtn').style.display=(mode==='schedule')?'none':'block';
+    if(mode==='schedule')renderScheduleSummary();
+    updateDurationDisplay();
+}
+
+// 时长自动计算：开始时间 + 结束时间 -> 时长字符串
+function computeDuration(startMs,endMs){
+    var diff=endMs-startMs;
+    if(diff<=0)return'--';
+    var h=Math.floor(diff/3600000);
+    var m=Math.floor((diff%3600000)/60000);
+    var s=Math.floor((diff%60000)/1000);
+    var parts=[];
+    if(h>0)parts.push(h+'小时');
+    if(m>0||h>0)parts.push(m+'分');
+    parts.push(pad(s)+'秒');
+    return parts.join('');
+}
+
+function updateDurationDisplay(){
+    var display=document.getElementById('durationDisplay');
+    if(!display)return;
+    var now=new Date();
+    var startTime,endTime;
+    if(currentMode==='start'){
+        sH=parseInt(document.getElementById('hSelect').value);
+        sM=parseInt(document.getElementById('mSelect').value);
+        sS=parseInt(document.getElementById('sSelect').value);
+        startTime=new Date(now.getFullYear(),now.getMonth(),now.getDate(),sH,sM,sS,0).getTime();
+        // 结束时间：默认+2小时
+        endTime=startTime+2*3600000;
+        display.textContent='开始 '+pad(sH)+':'+pad(sM)+':'+pad(sS)+' （结束时间默认为开始+2小时，请切换到"设置结束时间"调整）';
+    }else if(currentMode==='end'){
+        var eh=parseInt(document.getElementById('ehSelect').value);
+        var em=parseInt(document.getElementById('emSelect').value);
+        var es=parseInt(document.getElementById('esSelect').value);
+        endTime=new Date(now.getFullYear(),now.getMonth(),now.getDate(),eh,em,es,0).getTime();
+        var startNow=now.getTime();
+        display.textContent=computeDuration(startNow,endTime)+'（从现在到结束时间 '+pad(eh)+':'+pad(em)+':'+pad(es)+'）';
+    }else{
+        display.textContent='--';
+    }
 }
 
 function calcStart(){
@@ -363,39 +451,44 @@ function calcStart(){
     return target.getTime();
 }
 
-function calcEndFromMode(){
+function saveConfig(){
     var now=new Date();
-    if(currentMode==='now'){
-        readSelects();
-        var startTime=now.getTime();
-        var durMs=sD*60000;
-        if(durMs<=0){alert('请设置有效的考试时长');return null;}
-        return {start:startTime,end:startTime+durMs,totalMin:sD,hour:sH,min:sM,sec:sS,mode:'now'};
-    }else if(currentMode==='end'){
-        var t=readEndSelects();
-        var endTime=new Date(now.getFullYear(),now.getMonth(),now.getDate(),t.h,t.m,t.s,0);
+    var startTime,endTime,name,totalSec;
+    if(currentMode==='end'){
+        var eh=parseInt(document.getElementById('ehSelect').value);
+        var em=parseInt(document.getElementById('emSelect').value);
+        var es=parseInt(document.getElementById('esSelect').value);
+        endTime=new Date(now.getFullYear(),now.getMonth(),now.getDate(),eh,em,es,0);
         if(endTime.getTime()<=now.getTime()){
             endTime.setDate(endTime.getDate()+1);
         }
-        var startTime=now.getTime();
+        startTime=now.getTime();
         var durMs=endTime.getTime()-startTime;
-        if(durMs<=0){alert('结束时间必须晚于当前时间');return null;}
-        var totalMin=Math.floor(durMs/60000);
-        var usedSec=durMs%60000;
-        return {start:startTime,end:endTime.getTime(),totalMin:totalMin,hour:t.h,min:t.m,sec:t.s,mode:'end'};
+        if(durMs<=0){alert('结束时间必须晚于当前时间');return;}
+        totalSec=Math.floor(durMs/1000);
+        name='结束于 '+pad(eh)+':'+pad(em)+':'+pad(es);
     }else{
-        readSelects();
-        var start=calcStart();
-        var durMs=sD*60000;
-        if(durMs<=0){alert('请设置有效的考试时长');return null;}
-        return {start:start,end:start+durMs,totalMin:sD,hour:sH,min:sM,sec:sS,mode:'start'};
+        sH=parseInt(document.getElementById('hSelect').value);
+        sM=parseInt(document.getElementById('mSelect').value);
+        sS=parseInt(document.getElementById('sSelect').value);
+        startTime=calcStart();
+        // 默认2小时（可通过切换模式调整结束时间）
+        var defaultDurSec=2*3600;
+        endTime=startTime+defaultDurSec*1000;
+        totalSec=defaultDurSec;
+        name='开始于 '+pad(sH)+':'+pad(sM)+':'+pad(sS);
     }
-}
-
-function saveConfig(){
-    var result=calcEndFromMode();
-    if(!result)return;
-    examData=result;
+    examData={
+        start:startTime,
+        end:endTime,
+        totalMin:Math.floor(totalSec/60),
+        totalSec:totalSec,
+        hour:sH,
+        min:sM,
+        sec:sS,
+        name:name,
+        mode:currentMode
+    };
     localStorage.setItem('exam',JSON.stringify(examData));
     showCountdown();
 }
@@ -474,6 +567,7 @@ function updateTimer(){
             wt='还剩'+Math.ceil(remain/60000)+'分钟，请检查是否已将答题内容涂到答题卡上！';
         }
         if(ui.showLive)html+='<div class="status-badge status-live">'+ui.liveLabel+'</div>';
+        if(examData.name)html+='<div style="font-size:24px;font-weight:bold;margin-bottom:8px;color:'+ui.fontColor+'">'+escapeHtml(examData.name)+'</div>';
         var timerColor=ui.fontColor;
         var timerExtra='';
         if(remainSec<=ui.flashSec){
@@ -512,8 +606,238 @@ function loadConfig(){
     }
 }
 
+function loadSchedules(){
+    var saved=localStorage.getItem('exam_schedules');
+    if(saved){
+        try{schedules=JSON.parse(saved)||[];}catch(e){schedules=[];}
+    }
+}
+
+function saveSchedules(){
+    localStorage.setItem('exam_schedules',JSON.stringify(schedules));
+}
+
+function renderScheduleSummary(){
+    var el=document.getElementById('scheduleSummary');
+    if(!el)return;
+    if(schedules.length===0){
+        el.innerHTML='<div style="color:#999;text-align:center;padding:10px">暂无日程，请点击"编辑日程"添加</div>';
+        return;
+    }
+    // 按日期+开始时间排序
+    var sorted=schedules.slice().sort(function(a,b){
+        if(a.date!==b.date)return a.date<b.date?-1:1;
+        return(a.startH*60+a.startM)-(b.startH*60+b.startM);
+    });
+    var html='<div style="font-weight:bold;margin-bottom:5px">共 '+sorted.length+' 场考试</div>';
+    var lastDate='';
+    for(var i=0;i<sorted.length;i++){
+        var s=sorted[i];
+        if(s.date!==lastDate){
+            html+='<div style="margin-top:6px;font-weight:bold;border-bottom:1px solid #ccc;padding-bottom:2px">'+s.date+'</div>';
+            lastDate=s.date;
+        }
+        html+='<div style="padding-left:10px">'+s.name+' <span style="color:#666">'+pad(s.startH)+':'+pad(s.startM)+' - '+pad(s.endH)+':'+pad(s.endM)+'</span></div>';
+    }
+    el.innerHTML=html;
+}
+
+function openScheduleEditor(){
+    document.getElementById('config').style.display='none';
+    document.getElementById('scheduleEditor').style.display='block';
+    document.getElementById('itemEditor').style.display='none';
+    renderScheduleList();
+}
+
+function closeScheduleEditor(){
+    document.getElementById('config').style.display='block';
+    document.getElementById('scheduleEditor').style.display='none';
+    document.getElementById('itemEditor').style.display='none';
+    renderScheduleSummary();
+}
+
+function renderScheduleList(){
+    var el=document.getElementById('scheduleList');
+    if(!el)return;
+    if(schedules.length===0){
+        el.innerHTML='<div class="schedule-empty">暂无科目，点击下方"添加科目"开始</div>';
+        return;
+    }
+    var sorted=schedules.slice().sort(function(a,b){
+        if(a.date!==b.date)return a.date<b.date?-1:1;
+        return(a.startH*60+a.startM)-(b.startH*60+b.startM);
+    });
+    var html='';
+    for(var i=0;i<sorted.length;i++){
+        var s=sorted[i];
+        var realIdx=schedules.indexOf(s);
+        html+='<div class="schedule-item">'+
+            '<div class="schedule-item-info">'+
+                '<div class="schedule-item-name">'+escapeHtml(s.name)+'</div>'+
+                '<div class="schedule-item-time">'+s.date+' '+pad(s.startH)+':'+pad(s.startM)+' - '+pad(s.endH)+':'+pad(s.endM)+'</div>'+
+            '</div>'+
+            '<div class="schedule-item-actions">'+
+                '<button class="schedule-item-btn" onclick="editScheduleItem('+realIdx+')">编辑</button>'+
+                '<button class="schedule-item-btn danger" onclick="deleteScheduleItem('+realIdx+')">删除</button>'+
+            '</div>'+
+        '</div>';
+    }
+    el.innerHTML=html;
+}
+
+function escapeHtml(str){
+    var div=document.createElement('div');
+    div.textContent=str;
+    return div.innerHTML;
+}
+
+function addScheduleItem(){
+    editingItemIndex=-1;
+    document.getElementById('itemEditorTitle').textContent='添加科目';
+    document.getElementById('itemName').value='';
+    var today=new Date();
+    var dateStr=today.getFullYear()+'-'+pad(today.getMonth()+1)+'-'+pad(today.getDate());
+    document.getElementById('itemDate').value=dateStr;
+    document.getElementById('itemH').value='9';
+    document.getElementById('itemM').value='0';
+    document.getElementById('itemEH').value='11';
+    document.getElementById('itemEM').value='30';
+    updateItemDuration();
+    document.getElementById('scheduleEditor').style.display='none';
+    document.getElementById('itemEditor').style.display='block';
+}
+
+function editScheduleItem(idx){
+    editingItemIndex=idx;
+    var s=schedules[idx];
+    document.getElementById('itemEditorTitle').textContent='编辑科目';
+    document.getElementById('itemName').value=s.name;
+    document.getElementById('itemDate').value=s.date;
+    document.getElementById('itemH').value=s.startH;
+    document.getElementById('itemM').value=s.startM;
+    document.getElementById('itemEH').value=s.endH;
+    document.getElementById('itemEM').value=s.endM;
+    updateItemDuration();
+    document.getElementById('scheduleEditor').style.display='none';
+    document.getElementById('itemEditor').style.display='block';
+}
+
+function cancelItemEdit(){
+    document.getElementById('itemEditor').style.display='none';
+    document.getElementById('scheduleEditor').style.display='block';
+}
+
+function updateItemDuration(){
+    var sh=parseInt(document.getElementById('itemH').value);
+    var sm=parseInt(document.getElementById('itemM').value);
+    var eh=parseInt(document.getElementById('itemEH').value);
+    var em=parseInt(document.getElementById('itemEM').value);
+    var startMin=sh*60+sm;
+    var endMin=eh*60+em;
+    var diff=endMin-startMin;
+    var el=document.getElementById('itemDuration');
+    if(diff<=0){
+        el.textContent='结束时间必须晚于开始时间';
+        el.style.color='#c00';
+        return;
+    }
+    el.style.color='#000';
+    var h=Math.floor(diff/60);
+    var m=diff%60;
+    el.textContent=(h>0?h+'小时':'')+(m>0?m+'分钟':(h>0?'整':''));
+    if(diff===0)el.textContent='--';
+}
+
+function saveScheduleItem(){
+    var name=document.getElementById('itemName').value.trim();
+    var date=document.getElementById('itemDate').value;
+    var sh=parseInt(document.getElementById('itemH').value);
+    var sm=parseInt(document.getElementById('itemM').value);
+    var eh=parseInt(document.getElementById('itemEH').value);
+    var em=parseInt(document.getElementById('itemEM').value);
+    if(!name){alert('请输入科目名称');return;}
+    if(!date){alert('请选择考试日期');return;}
+    var startMin=sh*60+sm;
+    var endMin=eh*60+em;
+    if(endMin<=startMin){alert('结束时间必须晚于开始时间');return;}
+    var item={name:name,date:date,startH:sh,startM:sm,endH:eh,endM:em};
+    if(editingItemIndex>=0){
+        schedules[editingItemIndex]=item;
+    }else{
+        schedules.push(item);
+    }
+    saveSchedules();
+    cancelItemEdit();
+    renderScheduleList();
+}
+
+function deleteScheduleItem(idx){
+    if(!confirm('确定要删除"'+schedules[idx].name+'"吗？'))return;
+    schedules.splice(idx,1);
+    saveSchedules();
+    renderScheduleList();
+}
+
+function startSchedule(){
+    if(schedules.length===0){
+        alert('请先添加考试日程');
+        return;
+    }
+    // 找到下一场即将开始的考试
+    var now=new Date();
+    var nowMs=now.getTime();
+    var todayStr=now.getFullYear()+'-'+pad(now.getMonth()+1)+'-'+pad(now.getDate());
+    var currentMin=now.getHours()*60+now.getMinutes();
+    var candidates=[];
+    for(var i=0;i<schedules.length;i++){
+        var s=schedules[i];
+        var startMs=parseScheduleTime(s,now,true);
+        var endMs=parseScheduleTime(s,now,false);
+        candidates.push({item:s,startMs:startMs,endMs:endMs});
+    }
+    // 排序：先看是否正在进行，再看时间
+    candidates.sort(function(a,b){
+        // 正在进行的优先
+        var aIn=(nowMs>=a.startMs&&nowMs<a.endMs);
+        var bIn=(nowMs>=b.startMs&&nowMs<b.endMs);
+        if(aIn&&!bIn)return -1;
+        if(bIn&&!aIn)return 1;
+        // 否则按开始时间
+        return a.startMs-b.startMs;
+    });
+    var target=candidates[0];
+    if(!target){alert('没有可用的考试日程');return;}
+    examData={
+        start:target.startMs,
+        end:target.endMs,
+        totalMin:Math.floor((target.endMs-target.startMs)/60000),
+        totalSec:Math.floor((target.endMs-target.startMs)/1000),
+        hour:target.item.startH,
+        min:target.item.startM,
+        sec:0,
+        name:target.item.name,
+        date:target.item.date,
+        mode:'schedule'
+    };
+    localStorage.setItem('exam',JSON.stringify(examData));
+    showCountdown();
+}
+
+function parseScheduleTime(item,nowRef,isStart){
+    var h=isStart?item.startH:item.endH;
+    var m=isStart?item.startM:item.endM;
+    var parts=item.date.split('-');
+    var year=parseInt(parts[0]);
+    var month=parseInt(parts[1])-1;
+    var day=parseInt(parts[2]);
+    var d=new Date(year,month,day,h,m,0,0);
+    return d.getTime();
+}
+
 loadSettings();
 initSelects();
+loadSchedules();
+updateDurationDisplay();
 loadConfig();
 </script>
 </body>
