@@ -95,15 +95,15 @@ body{background:#fff;color:#000;font-family:"Microsoft YaHei",sans-serif;min-hei
   <div class="form-group" id="startTimeGroup">
     <label>考试开始时间</label>
     <div class="time-row">
-      <select id="hSelect" onchange="updateDurationDisplay()"></select>
+      <select id="hSelect" onchange="onStartTimeChange()"></select>
       <div class="time-sep">:</div>
-      <select id="mSelect" onchange="updateDurationDisplay()"></select>
+      <select id="mSelect" onchange="onStartTimeChange()"></select>
       <div class="time-sep">:</div>
-      <select id="sSelect" onchange="updateDurationDisplay()"></select>
+      <select id="sSelect" onchange="onStartTimeChange()"></select>
     </div>
   </div>
 
-  <div class="form-group" id="endTimeGroup" style="display:none">
+  <div class="form-group" id="endTimeGroup">
     <label>考试结束时间</label>
     <div class="time-row">
       <select id="ehSelect" onchange="updateDurationDisplay()"></select>
@@ -394,12 +394,24 @@ function switchMode(mode){
     document.getElementById('modeStartBtn').classList.toggle('active',mode==='start');
     document.getElementById('modeEndBtn').classList.toggle('active',mode==='end');
     document.getElementById('modeScheduleBtn').classList.toggle('active',mode==='schedule');
-    document.getElementById('startTimeGroup').style.display=(mode==='start')?'block':'none';
-    document.getElementById('endTimeGroup').style.display=(mode==='end')?'block':'none';
+    document.getElementById('startTimeGroup').style.display=(mode==='end'||mode==='schedule')?'none':'block';
+    document.getElementById('endTimeGroup').style.display=(mode==='schedule')?'none':'block';
     document.getElementById('durationGroup').style.display=(mode==='schedule')?'none':'block';
     document.getElementById('scheduleGroup').style.display=(mode==='schedule')?'block':'none';
     document.getElementById('startBtn').style.display=(mode==='schedule')?'none':'block';
     if(mode==='schedule')renderScheduleSummary();
+    updateDurationDisplay();
+}
+
+// 当开始时间变化时，自动调整结束时间为开始时间+2小时
+function onStartTimeChange(){
+    sH=parseInt(document.getElementById('hSelect').value);
+    sM=parseInt(document.getElementById('mSelect').value);
+    sS=parseInt(document.getElementById('sSelect').value);
+    var eh=(sH+2)%24;
+    document.getElementById('ehSelect').value=eh;
+    document.getElementById('emSelect').value=sM;
+    document.getElementById('esSelect').value=sS;
     updateDurationDisplay();
 }
 
@@ -427,9 +439,17 @@ function updateDurationDisplay(){
         sM=parseInt(document.getElementById('mSelect').value);
         sS=parseInt(document.getElementById('sSelect').value);
         startTime=new Date(now.getFullYear(),now.getMonth(),now.getDate(),sH,sM,sS,0).getTime();
-        // 结束时间：默认+2小时
-        endTime=startTime+2*3600000;
-        display.textContent='开始 '+pad(sH)+':'+pad(sM)+':'+pad(sS)+' （结束时间默认为开始+2小时，请切换到"设置结束时间"调整）';
+        var eh=parseInt(document.getElementById('ehSelect').value);
+        var em=parseInt(document.getElementById('emSelect').value);
+        var es=parseInt(document.getElementById('esSelect').value);
+        var endBase=new Date(now.getFullYear(),now.getMonth(),now.getDate(),eh,em,es,0);
+        // 跨天处理
+        if(endBase.getTime()<=startTime){
+            endBase.setDate(endBase.getDate()+1);
+        }
+        endTime=endBase.getTime();
+        var dur=computeDuration(startTime,endTime);
+        display.textContent=dur+'（'+pad(sH)+':'+pad(sM)+':'+pad(sS)+' - '+pad(eh)+':'+pad(em)+':'+pad(es)+'）';
     }else if(currentMode==='end'){
         var eh=parseInt(document.getElementById('ehSelect').value);
         var em=parseInt(document.getElementById('emSelect').value);
@@ -472,10 +492,18 @@ function saveConfig(){
         sM=parseInt(document.getElementById('mSelect').value);
         sS=parseInt(document.getElementById('sSelect').value);
         startTime=calcStart();
-        // 默认2小时（可通过切换模式调整结束时间）
-        var defaultDurSec=2*3600;
-        endTime=startTime+defaultDurSec*1000;
-        totalSec=defaultDurSec;
+        var eh=parseInt(document.getElementById('ehSelect').value);
+        var em=parseInt(document.getElementById('emSelect').value);
+        var es=parseInt(document.getElementById('esSelect').value);
+        var endBase=new Date(startTime);
+        endBase.setHours(eh,em,es,0);
+        if(endBase.getTime()<=startTime){
+            endBase.setDate(endBase.getDate()+1);
+        }
+        endTime=endBase.getTime();
+        var durMs=endTime-startTime;
+        if(durMs<=0){alert('结束时间必须晚于开始时间');return;}
+        totalSec=Math.floor(durMs/1000);
         name='开始于 '+pad(sH)+':'+pad(sM)+':'+pad(sS);
     }
     examData={
