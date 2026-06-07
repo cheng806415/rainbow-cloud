@@ -578,12 +578,37 @@ function updateTimer(){
     if(diff>0){
         var h=Math.floor(diff/3600000),m=Math.floor((diff%3600000)/60000),s=Math.floor((diff%60000)/1000);
         var timeStr=pad(examData.hour)+':'+pad(examData.min)+':'+pad(examData.sec||0);
+        // 计算天/小时/分/秒
+        var days=Math.floor(diff/86400000);
+        var hours=Math.floor((diff%86400000)/3600000);
+        var mins=Math.floor((diff%3600000)/60000);
+        var secs=Math.floor((diff%60000)/1000);
+        var detailParts=[];
+        if(days>0)detailParts.push(days+'天');
+        if(days>0||hours>0)detailParts.push(hours+'小时');
+        if(days>0||hours>0||mins>0)detailParts.push(mins+'分');
+        detailParts.push(secs+'秒');
+        var detailStr=detailParts.join('');
+        var waitTitle;
+        if(examData.name){
+            if(examData.mode==='schedule'&&examData.date){
+                waitTitle='距离 '+escapeHtml(examData.date)+' '+escapeHtml(examData.name)+' 考试开始';
+            }else if(examData.mode==='end'){
+                waitTitle='距离考试结束';
+            }else{
+                waitTitle='距离 '+escapeHtml(examData.name)+' 考试开始';
+            }
+        }else{
+            waitTitle='距离考试开始';
+        }
         if(ui.showWait)html+='<div class="status-badge status-wait">'+ui.waitLabel+'</div>';
+        html+='<div style="font-size:22px;font-weight:bold;margin-bottom:6px;color:'+ui.fontColor+'">'+waitTitle+'</div>';
         html+='<div class="countdown-time" style="font-size:'+ui.fontSize+'px;color:'+ui.fontColor+'">'+pad(h)+':'+pad(m)+':'+pad(s)+'</div>';
+        html+='<div style="font-size:18px;margin-top:6px;color:'+ui.labelColor+'">还剩 '+detailStr+'</div>';
         var info='';
-        if(ui.showTime)info+='<div class="exam-info" style="color:'+ui.labelColor+'">考试时间 <span style="color:'+ui.fontColor+'">'+timeStr+'</span></div>';
+        if(ui.showTime)info+='<div class="exam-info" style="color:'+ui.labelColor+'">开始时间 <span style="color:'+ui.fontColor+'">'+timeStr+'</span></div>';
         if(ui.showDur)info+='<div class="exam-info" style="color:'+ui.labelColor+'">考试时长 <span style="color:'+ui.fontColor+'">'+examData.totalMin+' 分钟</span></div>';
-        if(info)html+='<div>'+info+'</div>';
+        if(info)html+='<div style="margin-top:8px">'+info+'</div>';
     }else if(now<examData.end){
         var remain=examData.end-now;
         var rh=Math.floor(remain/3600000),rm=Math.floor((remain%3600000)/60000),rs=Math.floor((remain%60000)/1000);
@@ -600,7 +625,17 @@ function updateTimer(){
             wt='还剩'+Math.ceil(remain/60000)+'分钟，请检查是否已将答题内容涂到答题卡上！';
         }
         if(ui.showLive)html+='<div class="status-badge status-live">'+ui.liveLabel+'</div>';
-        if(examData.name)html+='<div style="font-size:24px;font-weight:bold;margin-bottom:8px;color:'+ui.fontColor+'">'+escapeHtml(examData.name)+'</div>';
+        var liveTitle;
+        if(examData.name){
+            if(examData.mode==='schedule'&&examData.date){
+                liveTitle=escapeHtml(examData.date)+' '+escapeHtml(examData.name)+' 考试进行中';
+            }else{
+                liveTitle=escapeHtml(examData.name)+' 考试进行中';
+            }
+        }else{
+            liveTitle='考试进行中';
+        }
+        html+='<div style="font-size:24px;font-weight:bold;margin-bottom:8px;color:'+ui.fontColor+'">'+liveTitle+'</div>';
         var timerColor=ui.fontColor;
         var timerExtra='';
         if(remainSec<=ui.flashSec){
@@ -620,7 +655,17 @@ function updateTimer(){
         if(ui.showEndTime)info+='<div class="exam-info" style="color:'+ui.labelColor+'">结束时间 <span style="color:'+ui.fontColor+'">'+new Date(examData.end).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'})+'</span></div>';
         if(info)html+='<div style="margin-top:8px">'+info+'</div>';
     }else{
-        html+='<div style="font-size:24px;font-weight:bold;color:'+ui.fontColor+';margin-bottom:15px">考试已结束</div>';
+        var endTitle;
+        if(examData.name){
+            if(examData.mode==='schedule'&&examData.date){
+                endTitle=escapeHtml(examData.date)+' '+escapeHtml(examData.name)+' 考试已结束';
+            }else{
+                endTitle=escapeHtml(examData.name)+' 考试已结束';
+            }
+        }else{
+            endTitle='考试已结束';
+        }
+        html+='<div style="font-size:24px;font-weight:bold;color:'+ui.fontColor+';margin-bottom:15px">'+endTitle+'</div>';
         if(ui.showDur)html+='<div class="exam-info" style="color:'+ui.labelColor+'">考试时长 <span style="color:'+ui.fontColor+'">'+examData.totalMin+' 分钟</span></div>';
         html+='<div class="action-row" style="max-width:400px;width:90%;margin:20px auto 0">'+
             '<button class="btn" onclick="deleteConfig()">删除考试</button>'+
