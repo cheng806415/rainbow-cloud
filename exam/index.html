@@ -124,6 +124,11 @@ body{background:#fff;color:#000;font-family:"Microsoft YaHei",sans-serif;min-hei
     <div id="scheduleSummary" style="padding:10px;border:2px solid #000;background:#f5f5f5;font-size:13px;min-height:60px;margin-bottom:10px"></div>
     <button class="btn btn-outline" onclick="openScheduleEditor()">编辑日程</button>
     <button class="btn" style="margin-top:8px" onclick="startSchedule()">一键开始日程</button>
+    <div class="action-row" style="margin-top:8px">
+      <button class="btn btn-outline" onclick="exportScheduleJson()">下载 JSON 配置</button>
+      <button class="btn btn-outline" onclick="document.getElementById('importJsonInput').click()">导入 JSON 配置</button>
+      <input type="file" id="importJsonInput" accept=".json,application/json" style="display:none" onchange="importScheduleJson(event)">
+    </div>
   </div>
 
   <button class="btn" id="startBtn" onclick="saveConfig()">开始计时</button>
@@ -860,6 +865,79 @@ function parseScheduleTime(item,nowRef,isStart){
     var day=parseInt(parts[2]);
     var d=new Date(year,month,day,h,m,0,0);
     return d.getTime();
+}
+
+function exportScheduleJson(){
+    if(schedules.length===0){
+        alert('当前没有日程可导出');
+        return;
+    }
+    var payload={
+        version:1,
+        exportedAt:new Date().toISOString(),
+        schedules:schedules
+    };
+    var json=JSON.stringify(payload,null,2);
+    var blob=new Blob([json],{type:'application/json;charset=utf-8'});
+    var url=URL.createObjectURL(blob);
+    var a=document.createElement('a');
+    var ts=new Date();
+    var fileName='exam_schedules_'+ts.getFullYear()+pad(ts.getMonth()+1)+pad(ts.getDate())+'_'+pad(ts.getHours())+pad(ts.getMinutes())+'.json';
+    a.href=url;
+    a.download=fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function(){URL.revokeObjectURL(url);},1000);
+}
+
+function importScheduleJson(event){
+    var file=event.target.files&&event.target.files[0];
+    if(!file)return;
+    var reader=new FileReader();
+    reader.onload=function(e){
+        try{
+            var text=e.target.result;
+            var data=JSON.parse(text);
+            var list=null;
+            if(Array.isArray(data))list=data;
+            else if(data&&Array.isArray(data.schedules))list=data.schedules;
+            if(!list){alert('JSON 格式不正确：未找到 schedules 数组');return;}
+            var valid=[];
+            for(var i=0;i<list.length;i++){
+                var s=list[i];
+                if(!s)continue;
+                if(typeof s.name!=='string'||!s.name.trim())continue;
+                if(typeof s.date!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(s.date))continue;
+                var sh=parseInt(s.startH),sm=parseInt(s.startM),eh=parseInt(s.endH),em=parseInt(s.endM);
+                if(isNaN(sh)||isNaN(sm)||isNaN(eh)||isNaN(em))continue;
+                if(sh<0||sh>23||eh<0||eh>23||sm<0||sm>59||em<0||em>59)continue;
+                if((sh*60+sm)>=(eh*60+em))continue;
+                valid.push({name:s.name.trim(),date:s.date,startH:sh,startM:sm,endH:eh,endM:em});
+            }
+            if(valid.length===0){
+                alert('未找到任何有效的科目记录');
+                return;
+            }
+            var msg='解析成功 '+valid.length+' 条科目。\n\n点击"确定"合并到现有日程；点击"取消"放弃。';
+            if(!confirm(msg)){return;}
+            for(var j=0;j<valid.length;j++){
+                schedules.push(valid[j]);
+            }
+            saveSchedules();
+            renderScheduleSummary();
+            alert('导入完成！共 '+schedules.length+' 条日程。');
+        }catch(err){
+            alert('JSON 解析失败：'+err.message);
+        }finally{
+            event.target.value='';
+        }
+    };
+    reader.onerror=function(){
+        alert('文件读取失败');
+        event.target.value='';
+    };
+    reader.readAsText(file,'utf-8');
 }
 
 loadSettings();
