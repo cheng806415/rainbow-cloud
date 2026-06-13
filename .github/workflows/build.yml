@@ -74,6 +74,7 @@ jobs:
       - name: Build macOS (ARM64)
         run: |
           flutter config --no-analytics
+          flutter config --no-enable-swift-package-manager
           flutter build macos --release
         working-directory: client
 
