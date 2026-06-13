@@ -47,6 +47,41 @@ jobs:
           name: rainbow_cloud_windows
           path: rainbow_cloud_windows.zip
 
+  build-macos:
+    name: Build macOS
+    runs-on: macos-latest
+    continue-on-error: true
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.0'
+          channel: 'stable'
+          cache: true
+
+      - name: Get dependencies
+        run: flutter pub get
+        working-directory: client
+
+      - name: Build macOS
+        run: flutter build macos --release
+        working-directory: client
+
+      - name: Create macOS distribution
+        run: |
+          cd client/build/macos/Build/Products/Release
+          ditto -c -k --sequesterRsrc --keepParent rainbow_cloud.app "$GITHUB_WORKSPACE/rainbow_cloud_macos.zip"
+        shell: bash
+
+      - name: Upload macOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rainbow_cloud_macos
+          path: rainbow_cloud_macos.zip
+
   build-android:
     name: Build Android
     runs-on: ubuntu-latest
@@ -93,7 +128,7 @@ jobs:
 
   create-release:
     name: Create GitHub Release
-    needs: [build-android]
+    needs: [build-android, build-windows, build-macos]
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     permissions:
@@ -126,6 +161,32 @@ jobs:
           find android_aab_dir -name "*.aab" -type f -exec cp {} app-release.aab \;
           ls -la app-release.aab
 
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: rainbow_cloud_windows
+          path: windows_dir
+          merge-multiple: false
+
+      - name: Locate Windows distribution
+        run: |
+          find windows_dir -name "rainbow_cloud_windows.zip" -type f -exec cp {} rainbow_cloud_windows.zip \; 2>/dev/null || echo "Windows artifact not available"
+          ls -la rainbow_cloud_windows.zip 2>/dev/null || echo "No Windows zip"
+
+      - name: Download macOS artifact
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: rainbow_cloud_macos
+          path: macos_dir
+          merge-multiple: false
+
+      - name: Locate macOS distribution
+        run: |
+          find macos_dir -name "rainbow_cloud_macos.zip" -type f -exec cp {} rainbow_cloud_macos.zip \; 2>/dev/null || echo "macOS artifact not available"
+          ls -la rainbow_cloud_macos.zip 2>/dev/null || echo "No macOS zip"
+
       - name: Generate version tag
         id: version
         run: |
@@ -144,3 +205,5 @@ jobs:
           files: |
             app-release.apk
             app-release.aab
+            rainbow_cloud_windows.zip
+            rainbow_cloud_macos.zip
