@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../utils/api_client.dart';
 import '../utils/app_logger.dart';
+import '../utils/auth_storage.dart';
 import '../utils/constants.dart';
 
 class AuthProvider extends ChangeNotifier {
@@ -33,6 +34,9 @@ class AuthProvider extends ChangeNotifier {
     _serverUrl = url.replaceAll(RegExp(r'/+$'), '');
     await _storage.write(key: AppConstants.storageKeyServerUrl, value: _serverUrl);
     await _apiClient.init(_serverUrl);
+    // 切换服务器 -> 旧会话失效，强制清空本地登录态
+    // 否则不同 server 的 cookie 会混在同一个 CookieJar 里导致校验失败
+    await _apiClient.logout();
     notifyListeners();
   }
 
@@ -55,9 +59,24 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> checkLoginStatus() async {
+    // 1) 先尝试从本地恢复登录态（cache + PersistCookieJar 落盘 cookie）
+    //    这一步会立即把 UI 切到已登录状态，后台再静默校验
+    final restored = await _apiClient.restoreSession();
+    if (restored) {
+      AppLogger().i('AuthProvider', 'checkLoginStatus: restored from local');
+      notifyListeners();
+      _startHeartbeat();
+      return;
+    }
+    // 2) 本地无会话 -> 调用一次 getUserInfo 兜底（可能服务器 session 还在但本地缓存被清）
     await _apiClient.loadUserInfo();
     notifyListeners();
     if (_apiClient.isLoggedIn) {
+      // 服务器仍认这个会话 -> 立即把缓存补回 secure storage
+      await AuthStorage.saveSession(
+        userId: _apiClient.userId,
+        userInfo: _apiClient.userInfo,
+      );
       _startHeartbeat();
     }
   }

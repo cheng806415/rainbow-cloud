@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:dio_cookie_manager/dio_cookie_manager.dart';
 import 'package:cookie_jar/cookie_jar.dart';
 import '../utils/constants.dart';
 import '../utils/app_logger.dart';
+import '../utils/auth_storage.dart';
 import '../models/file_model.dart';
 import '../models/share_model.dart';
 
@@ -13,12 +15,13 @@ class ApiClient {
   ApiClient._internal();
 
   late Dio _dio;
-  late CookieJar _cookieJar;
+  PersistCookieJar? _cookieJar;
   String _baseUrl = '';
   String? _csrfToken;
   bool _isLoggedIn = false;
   int _userId = 0;
   Map<String, dynamic> _userInfo = {};
+  bool _initialized = false;
 
   Dio get dio => _dio;
   String get baseUrl => _baseUrl;
@@ -33,9 +36,15 @@ class ApiClient {
   int get storageUsed => _userInfo['storage_used'] ?? 0;
   String get username => _userInfo['username'] ?? '';
 
+  /// 初始化 Dio 与持久化 Cookie 容器
+  /// - 必须先 await init() 才能进行网络请求
+  /// - 同一进程多次调用是幂等的
   Future<void> init(String baseUrl) async {
     _baseUrl = baseUrl.replaceAll(RegExp(r'/+$'), '');
-    _cookieJar = CookieJar();
+
+    // 仅在首次初始化时创建持久化 Cookie 容器
+    // 后续重连使用同一份 CookieJar，从而保证用户登录态
+    _cookieJar ??= await AuthStorage.createCookieJar();
 
     final uri = Uri.parse(_baseUrl);
 
@@ -53,7 +62,71 @@ class ApiClient {
       responseType: ResponseType.plain,
     ));
 
-    _dio.interceptors.add(CookieManager(_cookieJar));
+    _dio.interceptors.add(CookieManager(_cookieJar!));
+    _initialized = true;
+    AppLogger().i('ApiClient', 'init ok, baseUrl=$_baseUrl');
+  }
+
+  /// 启动时尝试从本地恢复登录态（先恢复缓存再异步校验）
+  /// - 立即恢复 UI：直接用 secure_storage 中的 user_info
+  /// - 后台静默校验：调用 getUserInfo，失败则清空
+  Future<bool> restoreSession() async {
+    if (!_initialized) {
+      AppLogger().w('ApiClient', 'restoreSession called before init');
+      return false;
+    }
+    final session = await AuthStorage.loadSession();
+    if (session == null) {
+      AppLogger().i('ApiClient', 'restoreSession: no local session');
+      return false;
+    }
+    final loginAt = session['loginAt'] as int;
+    if (!AuthStorage.isSessionValid(loginAt)) {
+      AppLogger().w('ApiClient', 'restoreSession: session expired, clear');
+      await AuthStorage.clearSession();
+      return false;
+    }
+    final uid = session['userId'] as int;
+    final info = session['userInfo'] as Map<String, dynamic>;
+    if (uid <= 0) {
+      return false;
+    }
+    _userId = uid;
+    _userInfo = info;
+    _isLoggedIn = true;
+    AppLogger().i('ApiClient', 'restoreSession: cached uid=$uid, will verify with server');
+
+    // 后台静默校验 token，失败再清空
+    unawaited(_verifySessionInBackground());
+    return true;
+  }
+
+  Future<void> _verifySessionInBackground() async {
+    try {
+      await loadUserInfo();
+      if (!_isLoggedIn || _userId <= 0) {
+        AppLogger().w('ApiClient', 'verifySession: server rejected, clearing local state');
+        await _clearLocalSession();
+      } else {
+        // 刷新缓存（昵称/头像/容量等可能已变更）
+        await AuthStorage.saveSession(userId: _userId, userInfo: _userInfo);
+      }
+    } catch (e) {
+      AppLogger().w('ApiClient', 'verifySession network error (keep local): $e');
+    }
+  }
+
+  Future<void> _clearLocalSession() async {
+    _isLoggedIn = false;
+    _userId = 0;
+    _userInfo.clear();
+    _csrfToken = null;
+    await AuthStorage.clearSession();
+    try {
+      await _cookieJar?.deleteAll();
+    } catch (e) {
+      AppLogger().w('ApiClient', 'clear cookies error: $e');
+    }
   }
 
   Future<String?> getCsrfToken() async {
@@ -87,6 +160,10 @@ class ApiClient {
         _isLoggedIn = true;
         await getCsrfToken();
         await loadUserInfo();
+        // 登录成功 -> 持久化会话（Cookie 由 PersistCookieJar 自动落盘，user 信息走 secure storage）
+        if (_userId > 0) {
+          await AuthStorage.saveSession(userId: _userId, userInfo: _userInfo);
+        }
         return {'success': true};
       }
       return {'success': false, 'message': data['msg'] ?? '登录失败'};
@@ -107,6 +184,9 @@ class ApiClient {
         _isLoggedIn = true;
         await getCsrfToken();
         await loadUserInfo();
+        if (_userId > 0) {
+          await AuthStorage.saveSession(userId: _userId, userInfo: _userInfo);
+        }
         return {'success': true};
       }
       return {'success': false, 'message': data['msg'] ?? '注册失败'};
@@ -167,18 +247,18 @@ class ApiClient {
     } catch (e) {
       AppLogger().w('ApiClient', 'server logout failed (continuing local clear): $e');
     }
-    _isLoggedIn = false;
-    _userId = 0;
-    _userInfo.clear();
-    _csrfToken = null;
-    _cookieJar = CookieJar();
+    // 清理本地会话：内存 + secure storage + 持久化 cookie 文件
+    await _clearLocalSession();
+    // 重新生成一个全新的 Dio 实例（不复用旧的 _dio，因为它持有旧的 CookieManager）
     _dio = Dio(BaseOptions(
       baseUrl: _baseUrl,
       connectTimeout: const Duration(seconds: AppConstants.requestTimeout),
       receiveTimeout: const Duration(seconds: AppConstants.requestTimeout),
       validateStatus: (status) => true,
     ));
-    _dio.interceptors.add(CookieManager(_cookieJar));
+    if (_cookieJar != null) {
+      _dio.interceptors.add(CookieManager(_cookieJar!));
+    }
   }
 
   // ============== 回收站 ==============
