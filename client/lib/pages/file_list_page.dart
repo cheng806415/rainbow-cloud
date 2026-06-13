@@ -441,8 +441,14 @@ class _FileListPageState extends State<FileListPage> {
                                 ],
                                 onSelected: (value) {
                                   if (value == 'preview') {
+                                    final allFiles = context.read<FileProvider>().files;
+                                    final idx = allFiles.indexWhere((f) => f.hash == file.hash);
                                     Navigator.push(context, MaterialPageRoute(
-                                      builder: (_) => PreviewPage(file: file),
+                                      builder: (_) => PreviewPage(
+                                        file: file,
+                                        files: allFiles,
+                                        initialIndex: idx >= 0 ? idx : 0,
+                                      ),
                                     ));
                                   } else if (value == 'delete') {
                                     _showFileActions(file);

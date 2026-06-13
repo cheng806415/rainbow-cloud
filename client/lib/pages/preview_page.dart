@@ -1,336 +1,244 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:photo_view/photo_view.dart';
-import 'package:video_player/video_player.dart';
-import 'package:chewie/chewie.dart';
 import '../models/file_model.dart';
 import '../utils/api_client.dart';
-import '../utils/app_logger.dart';
-import '../utils/download_manager.dart';
+import '../utils/file_preview_resolver.dart';
+import '../widgets/preview/image_preview.dart';
+import '../widgets/preview/video_preview.dart';
+import '../widgets/preview/audio_preview.dart';
+import '../widgets/preview/pdf_preview.dart';
+import '../widgets/preview/office_preview.dart';
+import '../widgets/preview/code_preview.dart';
+import '../widgets/preview/archive_preview.dart';
+import '../widgets/preview/file_info_sheet.dart';
+import '../widgets/preview/preview_bottom_bar.dart';
 
-class PreviewPage extends StatefulWidget {
+/// 统一预览入口
+/// - 单文件模式: PreviewPage(file: file)
+/// - 画廊模式 (多文件滑动, 主要用于图片): PreviewPage(files: list, initialIndex: i)
+///
+/// 界面与交互对齐网页版 file.php:
+/// - 顶部导航: 文件名 + 操作按钮
+/// - 中部: 各类文件专属预览器
+/// - 底部: 操作栏 (下载/复制链接/分享/创建分享/信息)
+class PreviewPage extends StatelessWidget {
   final FileModel file;
-  const PreviewPage({super.key, required this.file});
+  final List<FileModel>? files;
+  final int initialIndex;
 
-  @override
-  State<PreviewPage> createState() => _PreviewPageState();
-}
-
-class _PreviewPageState extends State<PreviewPage> {
-  VideoPlayerController? _videoController;
-  ChewieController? _chewieController;
-  bool _isLoading = true;
-  String? _error;
-  List<Map<String, dynamic>>? _archiveList;
-  Map<String, dynamic>? _archiveInfo;
-
-  @override
-  void initState() {
-    super.initState();
-    if (widget.file.isVideo) {
-      _initVideo();
-    } else if (widget.file.isArchive) {
-      _initArchive();
-    } else {
-      _isLoading = false;
-    }
-  }
-
-  Future<void> _initVideo() async {
-    try {
-      _videoController = VideoPlayerController.networkUrl(
-        Uri.parse(_getFileUrl()),
-      );
-      await _videoController!.initialize();
-      _chewieController = ChewieController(
-        videoPlayerController: _videoController!,
-        autoPlay: true,
-        looping: false,
-        showControls: true,
-      );
-      setState(() => _isLoading = false);
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-        _error = '视频加载失败: $e';
-      });
-    }
-  }
-
-  Future<void> _initArchive() async {
-    try {
-      final data = await ApiClient().getArchiveList(widget.file.hash);
-      if (data != null && data['code'] == 0) {
-        setState(() {
-          _archiveInfo = data;
-          _archiveList = (data['list'] as List).cast<Map<String, dynamic>>();
-          _isLoading = false;
-        });
-      } else {
-        setState(() {
-          _isLoading = false;
-          _error = data?['msg'] ?? '无法读取压缩包结构';
-        });
-      }
-    } catch (e) {
-      AppLogger().e('Preview', 'archive load error: $e');
-      setState(() {
-        _isLoading = false;
-        _error = '读取压缩包结构失败: $e';
-      });
-    }
-  }
-
-  String _getFileUrl() {
-    return ApiClient().getFileUrl(widget.file);
-  }
-
-  String _getDownloadUrl() {
-    return ApiClient().getDownloadUrl(widget.file);
-  }
-
-  @override
-  void dispose() {
-    _videoController?.dispose();
-    _chewieController?.dispose();
-    super.dispose();
-  }
+  const PreviewPage({
+    super.key,
+    required this.file,
+    this.files,
+    this.initialIndex = 0,
+  });
 
   @override
   Widget build(BuildContext context) {
+    // 画廊模式 (主要针对多张图片)
+    if (files != null && files!.length > 1) {
+      // 过滤出图片文件
+      final imageFiles = files!.where((f) => f.isImage).toList();
+      if (imageFiles.length > 1) {
+        // 找到当前 file 在 imageFiles 中的位置
+        int idx = imageFiles.indexWhere((f) => f.hash == file.hash);
+        if (idx < 0) idx = 0;
+        return ImagePreview(
+          files: imageFiles,
+          initialIndex: idx,
+        );
+      }
+    }
+
+    // 单文件模式
+    return _SingleFilePreview(file: file);
+  }
+}
+
+class _SingleFilePreview extends StatelessWidget {
+  final FileModel file;
+  const _SingleFilePreview({required this.file});
+
+  @override
+  Widget build(BuildContext context) {
+    final type = FilePreviewResolver.resolve(file);
+
+    // 图片走专门的画廊组件
+    if (type == PreviewType.image) {
+      return ImagePreview(files: [file], initialIndex: 0);
+    }
+
     return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.file.name),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.download),
-            onPressed: () {
-              DownloadManager().startDownload(widget.file);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('已添加下载任务: ${widget.file.name}')),
-              );
-            },
-            tooltip: '下载',
-          ),
-          IconButton(
-            icon: const Icon(Icons.link),
-            onPressed: () {
-              Clipboard.setData(ClipboardData(text: _getDownloadUrl()));
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('下载链接已复制'), duration: Duration(seconds: 1)),
-              );
-            },
-            tooltip: '复制链接',
-          ),
-        ],
-      ),
-      body: _buildPreview(),
+      appBar: _buildAppBar(context),
+      body: _buildBody(type),
+      bottomNavigationBar: PreviewBottomBar(file: file),
     );
   }
 
-  Widget _buildPreview() {
-    if (widget.file.isImage) {
-      return PhotoView(
-        imageProvider: NetworkImage(_getFileUrl()),
-        loadingBuilder: (context, event) {
-          final total = event?.expectedTotalBytes;
-          final loaded = event?.cumulativeBytesLoaded;
-          String percentText = '加载中...';
-          if (total != null && loaded != null) {
-            percentText = '加载中... ${(loaded / total * 100).toStringAsFixed(0)}%';
-          }
-          return Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const CircularProgressIndicator(),
-                const SizedBox(height: 16),
-                Text(percentText),
-              ],
-            ),
-          );
-        },
-        errorBuilder: (context, error, stackTrace) => _buildErrorView('图片加载失败'),
-      );
-    }
-
-    if (widget.file.isVideo) {
-      if (_isLoading) {
-        return const Center(child: CircularProgressIndicator());
-      }
-      if (_error != null) {
-        return _buildErrorView(_error!);
-      }
-      if (_chewieController != null) {
-        return Chewie(controller: _chewieController!);
-      }
-      return _buildErrorView('视频播放器初始化失败');
-    }
-
-    if (widget.file.isAudio) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.audiotrack, size: 80, color: Colors.grey[400]),
-            const SizedBox(height: 24),
-            Text(widget.file.name, style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 8),
-            Text(widget.file.formattedSize),
-            const SizedBox(height: 24),
-            FilledButton.icon(
-              onPressed: () {},
-              icon: const Icon(Icons.play_arrow),
-              label: const Text('播放'),
-            ),
-          ],
-        ),
-      );
-    }
-
-    if (widget.file.isPdf) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.picture_as_pdf, size: 80, color: Colors.grey[400]),
-            const SizedBox(height: 24),
-            Text(widget.file.name),
-            const SizedBox(height: 8),
-            Text(widget.file.formattedSize),
-            const SizedBox(height: 24),
-            FilledButton.icon(
-              onPressed: () {},
-              icon: const Icon(Icons.open_in_new),
-              label: const Text('在浏览器中打开'),
-            ),
-          ],
-        ),
-      );
-    }
-
-    if (widget.file.isArchive) {
-      if (_isLoading) {
-        return const Center(child: CircularProgressIndicator());
-      }
-      if (_error != null) {
-        return _buildErrorView(_error!);
-      }
-      return _buildArchiveView();
-    }
-
-    return _buildErrorView('不支持预览该文件格式');
-  }
-
-  Widget _buildErrorView(String message) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+  PreferredSizeWidget _buildAppBar(BuildContext context) {
+    return AppBar(
+      title: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.error_outline, size: 80, color: Colors.red[300]),
-          const SizedBox(height: 16),
-          Text(message),
-          const SizedBox(height: 16),
-          FilledButton.icon(
-            onPressed: () {},
-            icon: const Icon(Icons.download),
-            label: const Text('下载文件'),
+          Text(
+            file.name,
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          Text(
+            '${(file.type ?? 'file').toUpperCase()} | ${file.formattedSize}',
+            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w400),
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildArchiveView() {
-    final info = _archiveInfo!;
-    final list = _archiveList!;
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(16),
-          color: Theme.of(context).colorScheme.surfaceContainerHighest,
-          child: Row(
-            children: [
-              Icon(Icons.folder_zip, size: 40, color: Colors.orange[400]),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(info['name'] ?? widget.file.name, style: Theme.of(context).textTheme.titleMedium),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${(info['archive_type'] ?? 'zip').toString().toUpperCase()} | '
-                      '解压后: ${_formatBytes((info['total_size'] as num?)?.toInt() ?? 0)} | '
-                      '${info['file_count'] ?? 0} 个文件, ${info['dir_count'] ?? 0} 个文件夹',
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.info_outline),
+          onPressed: () {
+            showModalBottomSheet(
+              context: context,
+              isScrollControlled: true,
+              backgroundColor: Colors.transparent,
+              builder: (_) => FileInfoSheet(file: file),
+            );
+          },
+          tooltip: '文件信息',
         ),
-        Expanded(
-          child: ListView.builder(
-            itemCount: list.length,
-            itemBuilder: (context, index) {
-              final item = list[index];
-              final name = item['name'] as String;
-              final isDir = item['is_dir'] == true;
-              final size = item['size'] as int? ?? 0;
-              final depth = '/'.allMatches(name).length;
-              final displayName = name.split('/').last.isNotEmpty
-                  ? name.split('/').last
-                  : name.split('/').where((s) => s.isNotEmpty).last + '/';
-              return ListTile(
-                dense: true,
-                contentPadding: EdgeInsets.only(left: 16.0 + depth * 16.0, right: 16),
-                leading: Icon(
-                  isDir ? Icons.folder : _getFileIcon(displayName),
-                  size: 20,
-                  color: isDir ? Colors.orange[400] : Colors.grey[500],
-                ),
-                title: Text(displayName, style: const TextStyle(fontSize: 13)),
-                trailing: isDir
-                    ? null
-                    : Text(_formatBytes(size), style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-              );
-            },
-          ),
+        PopupMenuButton<String>(
+          onSelected: (v) {
+            if (v == 'browser') _openInBrowser(context);
+            if (v == 'copy') _copyLink(context);
+          },
+          itemBuilder: (context) => const [
+            PopupMenuItem(
+              value: 'copy',
+              child: Row(
+                children: [Icon(Icons.copy, size: 18), SizedBox(width: 8), Text('复制链接')],
+              ),
+            ),
+            PopupMenuItem(
+              value: 'browser',
+              child: Row(
+                children: [Icon(Icons.open_in_browser, size: 18), SizedBox(width: 8), Text('浏览器打开')],
+              ),
+            ),
+          ],
         ),
       ],
     );
   }
 
-  IconData _getFileIcon(String name) {
-    final ext = name.contains('.') ? name.split('.').last.toLowerCase() : '';
-    switch (ext) {
-      case 'png': case 'jpg': case 'jpeg': case 'gif': case 'bmp': case 'webp': case 'svg':
-        return Icons.image;
-      case 'mp3': case 'wav': case 'ogg': case 'flac': case 'aac':
-        return Icons.audiotrack;
-      case 'mp4': case 'avi': case 'mkv': case 'mov': case 'webm':
-        return Icons.videocam;
-      case 'pdf':
-        return Icons.picture_as_pdf;
-      case 'doc': case 'docx':
-        return Icons.description;
-      case 'xls': case 'xlsx':
-        return Icons.table_chart;
-      case 'zip': case 'rar': case '7z': case 'tar': case 'gz':
-        return Icons.folder_zip;
-      case 'txt': case 'md': case 'log':
-        return Icons.description;
-      default:
-        return Icons.insert_drive_file;
+  Widget _buildBody(PreviewType type) {
+    switch (type) {
+      case PreviewType.image:
+        return const SizedBox.shrink(); // 已在外层处理
+      case PreviewType.video:
+        return VideoPreview(file: file);
+      case PreviewType.audio:
+        return AudioPreview(file: file);
+      case PreviewType.pdf:
+        return PdfPreview(file: file);
+      case PreviewType.office:
+        return OfficePreview(file: file);
+      case PreviewType.code:
+      case PreviewType.text:
+        return CodePreview(file: file);
+      case PreviewType.archive:
+        return ArchivePreview(file: file);
+      case PreviewType.unknown:
+        return _UnsupportedView(file: file);
     }
   }
 
-  String _formatBytes(int bytes) {
-    if (bytes < 1024) return '$bytes B';
-    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    if (bytes < 1024 * 1024 * 1024) return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
-    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
+  void _openInBrowser(BuildContext context) async {
+    final url = ApiClient().getFileUrl(file);
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('链接: $url'),
+        duration: const Duration(seconds: 2),
+        action: SnackBarAction(
+          label: '复制',
+          onPressed: () async {
+            await Clipboard.setData(ClipboardData(text: url));
+          },
+        ),
+      ),
+    );
+  }
+
+  void _copyLink(BuildContext context) async {
+    final url = ApiClient().getFileUrl(file);
+    await Clipboard.setData(ClipboardData(text: url));
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('链接已复制'), duration: Duration(seconds: 1)),
+    );
+  }
+}
+
+class _UnsupportedView extends StatelessWidget {
+  final FileModel file;
+  const _UnsupportedView({required this.file});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(_iconForType(file), size: 80, color: Colors.grey.shade400),
+            const SizedBox(height: 16),
+            Text(
+              file.name,
+              style: Theme.of(context).textTheme.titleMedium,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '暂不支持 ${(file.type ?? '此类型').toUpperCase()} 文件在线预览',
+              style: Theme.of(context).textTheme.bodySmall,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              alignment: WrapAlignment.center,
+              children: [
+                FilledButton.icon(
+                  onPressed: () {},
+                  icon: const Icon(Icons.download),
+                  label: const Text('下载到本地'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: () {},
+                  icon: const Icon(Icons.open_in_browser),
+                  label: const Text('复制链接'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  IconData _iconForType(FileModel file) {
+    final ext = (file.type ?? '').toLowerCase();
+    if (file.isImage) return Icons.image;
+    if (file.isVideo) return Icons.videocam;
+    if (file.isAudio) return Icons.audiotrack;
+    if (file.isPdf) return Icons.picture_as_pdf;
+    if (['doc', 'docx', 'wps', 'rtf'].contains(ext)) return Icons.description;
+    if (['xls', 'xlsx'].contains(ext)) return Icons.table_chart;
+    if (['ppt', 'pptx'].contains(ext)) return Icons.slideshow;
+    if (['zip', 'rar', '7z', 'tar', 'gz'].contains(ext)) return Icons.folder_zip;
+    if (['txt', 'md', 'log'].contains(ext)) return Icons.text_snippet;
+    return Icons.insert_drive_file;
   }
 }
