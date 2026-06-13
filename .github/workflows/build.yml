@@ -48,8 +48,8 @@ jobs:
           path: rainbow_cloud_windows.zip
 
   build-macos:
-    name: Build macOS
-    runs-on: macos-latest
+    name: Build macOS (ARM64 DMG)
+    runs-on: macos-14  # Apple Silicon runner
     continue-on-error: true
     steps:
       - name: Checkout code
@@ -62,25 +62,99 @@ jobs:
           channel: 'stable'
           cache: true
 
+      - name: Verify ARM64 host
+        run: |
+          echo "Architecture: $(uname -m)"
+          echo "Host: $(sw_vers -productVersion)"
+
       - name: Get dependencies
         run: flutter pub get
         working-directory: client
 
-      - name: Build macOS
-        run: flutter build macos --release
+      - name: Build macOS (ARM64)
+        run: |
+          flutter config --no-analytics
+          flutter build macos --release
         working-directory: client
 
-      - name: Create macOS distribution
+      - name: Verify ARM64 binary
         run: |
-          cd client/build/macos/Build/Products/Release
-          ditto -c -k --sequesterRsrc --keepParent rainbow_cloud.app "$GITHUB_WORKSPACE/rainbow_cloud_macos.zip"
-        shell: bash
+          APP_PATH="client/build/macos/Build/Products/Release/rainbow_cloud.app"
+          BIN="$APP_PATH/Contents/MacOS/rainbow_cloud"
+          echo "Binary architectures:"
+          file "$BIN"
+          lipo -archs "$BIN"
+          if ! lipo -archs "$BIN" | grep -q "arm64"; then
+            echo "ERROR: Binary is not arm64"
+            exit 1
+          fi
+          echo "ARM64 verified OK"
 
-      - name: Upload macOS artifact
+      - name: Apply ad-hoc code signing
+        run: |
+          APP_PATH="client/build/macos/Build/Products/Release/rainbow_cloud.app"
+          echo "Applying ad-hoc signature..."
+          codesign --force --deep --sign - "$APP_PATH"
+          codesign --verify --verbose=2 "$APP_PATH" || echo "Ad-hoc signature noted (will require Gatekeeper override on first run)"
+
+      - name: Create DMG staging
+        run: |
+          STAGING="$GITHUB_WORKSPACE/dmg-staging"
+          rm -rf "$STAGING"
+          mkdir -p "$STAGING"
+          cp -R "client/build/macos/Build/Products/Release/rainbow_cloud.app" "$STAGING/"
+          ln -s /Applications "$STAGING/Applications"
+          ls -la "$STAGING"
+
+      - name: Build ARM64 DMG
+        run: |
+          STAGING="$GITHUB_WORKSPACE/dmg-staging"
+          DMG_PATH="$GITHUB_WORKSPACE/rainbow_cloud_arm64.dmg"
+          rm -f "$DMG_PATH"
+          hdiutil create \
+            -volname "Rainbow Cloud" \
+            -srcfolder "$STAGING" \
+            -ov \
+            -format UDZO \
+            -fs HFS+ \
+            "$DMG_PATH"
+          echo "DMG created:"
+          ls -la "$DMG_PATH"
+          file "$DMG_PATH"
+
+      - name: Verify DMG integrity
+        run: |
+          DMG_PATH="$GITHUB_WORKSPACE/rainbow_cloud_arm64.dmg"
+          echo "Verifying DMG..."
+          hdiutil verify "$DMG_PATH" || echo "verify failed, continuing"
+          MOUNT_OUT=$(hdiutil attach "$DMG_PATH" -nobrowse -readonly -mountrandom /tmp/dmg-mount 2>&1)
+          echo "$MOUNT_OUT"
+          MOUNT_POINT=$(echo "$MOUNT_OUT" | grep -oE '/tmp/dmg-mount\s*$' | awk '{print $1}' | head -1)
+          if [ -d "$MOUNT_POINT" ]; then
+            ls -la "$MOUNT_POINT"
+            hdiutil detach "$MOUNT_POINT"
+          else
+            # Try to find mount point by other means
+            DF_OUT=$(df | grep dmg-mount | tail -1 | awk '{print $NF}')
+            if [ -n "$DF_OUT" ]; then
+              ls -la "$DF_OUT"
+              hdiutil detach "$DF_OUT"
+            fi
+          fi
+
+      - name: Generate version tag
+        id: macversion
+        run: |
+          DATETIME=$(TZ='Asia/Shanghai' date +'%Y%m%d-%H%M')
+          echo "tag=v${DATETIME}" >> $GITHUB_OUTPUT
+          echo "name=v${DATETIME}" >> $GITHUB_OUTPUT
+
+      - name: Upload DMG artifact
         uses: actions/upload-artifact@v4
         with:
-          name: rainbow_cloud_macos
-          path: rainbow_cloud_macos.zip
+          name: rainbow_cloud_macos_dmg
+          path: rainbow_cloud_arm64.dmg
+          if-no-files-found: error
 
   build-android:
     name: Build Android
@@ -174,7 +248,20 @@ jobs:
           find windows_dir -name "rainbow_cloud_windows.zip" -type f -exec cp {} rainbow_cloud_windows.zip \; 2>/dev/null || echo "Windows artifact not available"
           ls -la rainbow_cloud_windows.zip 2>/dev/null || echo "No Windows zip"
 
-      - name: Download macOS artifact
+      - name: Download macOS DMG artifact
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: rainbow_cloud_macos_dmg
+          path: macos_dmg_dir
+          merge-multiple: false
+
+      - name: Locate macOS DMG
+        run: |
+          find macos_dmg_dir -name "*.dmg" -type f -exec cp {} rainbow_cloud_arm64.dmg \; 2>/dev/null || echo "macOS DMG artifact not available"
+          ls -la rainbow_cloud_arm64.dmg 2>/dev/null || echo "No macOS DMG"
+
+      - name: Download macOS legacy zip artifact
         uses: actions/download-artifact@v4
         continue-on-error: true
         with:
@@ -182,10 +269,10 @@ jobs:
           path: macos_dir
           merge-multiple: false
 
-      - name: Locate macOS distribution
+      - name: Locate macOS legacy zip
         run: |
-          find macos_dir -name "rainbow_cloud_macos.zip" -type f -exec cp {} rainbow_cloud_macos.zip \; 2>/dev/null || echo "macOS artifact not available"
-          ls -la rainbow_cloud_macos.zip 2>/dev/null || echo "No macOS zip"
+          find macos_dir -name "rainbow_cloud_macos.zip" -type f -exec cp {} rainbow_cloud_macos.zip \; 2>/dev/null || echo "macOS legacy zip not available"
+          ls -la rainbow_cloud_macos.zip 2>/dev/null || echo "No macOS legacy zip"
 
       - name: Generate version tag
         id: version
@@ -206,4 +293,5 @@ jobs:
             app-release.apk
             app-release.aab
             rainbow_cloud_windows.zip
+            rainbow_cloud_arm64.dmg
             rainbow_cloud_macos.zip
