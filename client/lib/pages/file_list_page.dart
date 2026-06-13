@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:file_picker/file_picker.dart';
 import '../providers/file_provider.dart';
 import '../providers/folder_provider.dart';
-import '../providers/auth_provider.dart';
 import '../models/file_model.dart';
 import '../models/folder_model.dart';
+import '../utils/api_client.dart';
 import '../utils/download_manager.dart';
 import 'preview_page.dart';
-import 'download_page.dart';
 import 'upload_page.dart';
+import 'file_detail_page.dart';
 
 class FileListPage extends StatefulWidget {
   const FileListPage({super.key});
@@ -119,6 +119,25 @@ class _FileListPageState extends State<FileListPage> {
               onTap: () {
                 Navigator.pop(context);
                 _startDownload(file);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.share),
+              title: const Text('分享'),
+              onTap: () async {
+                Navigator.pop(context);
+                final ok = await ApiClient().createShare(file.id);
+                if (!mounted) return;
+                if (ok != null && ok['surl'] != null) {
+                  _showShareResult(file.name, ok['surl']);
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(ok?['error'] ?? '分享失败'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
               },
             ),
             ListTile(
@@ -247,17 +266,25 @@ class _FileListPageState extends State<FileListPage> {
               decoration: InputDecoration(
                 hintText: '搜索文件...',
                 prefixIcon: const Icon(Icons.search),
-                suffixIcon: _searchController.text.isNotEmpty
-                    ? IconButton(icon: const Icon(Icons.clear), onPressed: () {
+                suffixIcon: ValueListenableBuilder<TextEditingValue>(
+                  valueListenable: _searchController,
+                  builder: (context, value, _) {
+                    if (value.text.isEmpty) return const SizedBox.shrink();
+                    return IconButton(
+                      icon: const Icon(Icons.clear),
+                      onPressed: () {
                         _searchController.clear();
                         setState(() => _searchKeyword = '');
                         _loadFiles();
-                      })
-                    : null,
+                      },
+                    );
+                  },
+                ),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                 contentPadding: const EdgeInsets.symmetric(vertical: 0),
                 isDense: true,
               ),
+              onChanged: (_) => setState(() {}),
               onSubmitted: (value) {
                 setState(() => _searchKeyword = value);
                 _loadFiles();
@@ -294,11 +321,46 @@ class _FileListPageState extends State<FileListPage> {
                     final folder = folderProvider.folders[index];
                     return Padding(
                       padding: const EdgeInsets.only(right: 8),
-                      child: ActionChip(
-                        avatar: Icon(Icons.folder,
-                          color: folder.hide ? Colors.grey : Theme.of(context).colorScheme.primary),
-                        label: Text(folder.name),
-                        onPressed: () => _enterFolder(folder),
+                      child: SizedBox(
+                        width: 120,
+                        child: Card(
+                          margin: EdgeInsets.zero,
+                          child: InkWell(
+                            onTap: () => _enterFolder(folder),
+                            onLongPress: () => _showFolderMenu(context, folder),
+                            borderRadius: BorderRadius.circular(12),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Stack(
+                                    children: [
+                                      Icon(Icons.folder,
+                                        size: 36,
+                                        color: folder.hide
+                                            ? Colors.grey
+                                            : Theme.of(context).colorScheme.primary),
+                                      if (folder.hide)
+                                        const Positioned(
+                                          right: 0,
+                                          bottom: 0,
+                                          child: Icon(Icons.visibility_off, size: 14, color: Colors.grey),
+                                        ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    folder.name,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(fontSize: 12),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
                     );
                   },
@@ -389,7 +451,11 @@ class _FileListPageState extends State<FileListPage> {
                               ),
                         onTap: _isSelectionMode
                             ? () => context.read<FileProvider>().toggleSelection(file)
-                            : null,
+                            : () {
+                                Navigator.push(context, MaterialPageRoute(
+                                  builder: (_) => FileDetailPage(file: file),
+                                ));
+                              },
                       );
                     },
                   ),
@@ -424,5 +490,145 @@ class _FileListPageState extends State<FileListPage> {
     if (file.isAudio) return Colors.orange;
     if (file.isPdf) return Colors.red;
     return Colors.blue;
+  }
+
+  void _showShareResult(String fileName, String surl) {
+    final link = '${ApiClient().baseUrl}/s/$surl';
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('分享创建成功'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('文件: $fileName'),
+            const SizedBox(height: 8),
+            const Text('分享链接:', style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 4),
+            SelectableText(link),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: link));
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('已复制到剪贴板'), duration: Duration(seconds: 1)),
+              );
+            },
+            child: const Text('复制链接'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('关闭'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showFolderMenu(BuildContext context, FolderModel folder) {
+    final provider = context.read<FolderProvider>();
+    showModalBottomSheet(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text('管理文件夹: ${folder.name}', style: Theme.of(context).textTheme.titleMedium),
+            ),
+            const Divider(height: 1),
+            ListTile(
+              leading: Icon(folder.hide ? Icons.visibility : Icons.visibility_off),
+              title: Text(folder.hide ? '取消隐藏' : '隐藏'),
+              onTap: () async {
+                Navigator.pop(sheetContext);
+                final ok = await provider.toggleHide(folder.id);
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(ok ? '操作成功' : '操作失败')),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.lock),
+              title: const Text('设置密码'),
+              onTap: () async {
+                Navigator.pop(sheetContext);
+                await _showFolderPasswordDialog(context, folder, provider);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete, color: Colors.red),
+              title: const Text('删除', style: TextStyle(color: Colors.red)),
+              onTap: () async {
+                Navigator.pop(sheetContext);
+                final ok = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: const Text('删除文件夹'),
+                    content: Text('确定删除文件夹 "${folder.name}" 吗？'),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
+                      FilledButton(
+                        onPressed: () => Navigator.pop(ctx, true),
+                        style: FilledButton.styleFrom(backgroundColor: Colors.red),
+                        child: const Text('删除'),
+                      ),
+                    ],
+                  ),
+                );
+                if (ok != true) return;
+                final success = await provider.deleteFolder(folder.id);
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(success ? '已删除' : '删除失败'),
+                    backgroundColor: success ? Colors.green : Colors.red,
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showFolderPasswordDialog(BuildContext context, FolderModel folder, FolderProvider provider) async {
+    final ctrl = TextEditingController(text: folder.pwd ?? '');
+    final result = await showDialog<String?>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('设置文件夹密码'),
+        content: TextField(
+          controller: ctrl,
+          decoration: const InputDecoration(
+            labelText: '密码(留空清除)',
+            helperText: '只能为字母和数字',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+            child: const Text('保存'),
+          ),
+        ],
+      ),
+    );
+    if (result == null) return;
+    final ok = await provider.setPassword(folder.id, result.isEmpty ? null : result);
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(ok ? '密码已更新' : '操作失败'),
+        backgroundColor: ok ? Colors.green : Colors.red,
+      ),
+    );
   }
 }

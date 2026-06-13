@@ -1,13 +1,12 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'providers/auth_provider.dart';
 import 'providers/file_provider.dart';
 import 'providers/folder_provider.dart';
 import 'providers/theme_provider.dart';
+import 'providers/upload_provider.dart';
 import 'pages/login_page.dart';
 import 'pages/home_page.dart';
-import 'utils/constants.dart';
 import 'utils/app_logger.dart';
 
 void main() async {
@@ -28,6 +27,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => FileProvider()),
         ChangeNotifierProvider(create: (_) => FolderProvider()),
+        ChangeNotifierProvider(create: (_) => UploadProvider()),
       ],
       child: Consumer<ThemeProvider>(
         builder: (context, themeProvider, child) {
@@ -75,17 +75,14 @@ class _AuthCheckState extends State<AuthCheck> {
     final authProvider = context.read<AuthProvider>();
     await authProvider.initServerUrl();
     await authProvider.checkLoginStatus();
-    if (mounted) {
-      if (authProvider.isLoggedIn) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const HomePage()),
-        );
-      } else {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const LoginPage()),
-        );
-      }
-    }
+    if (!mounted) return;
+    // pushAndRemoveUntil 清空整个导航栈,防止按返回回到 AuthCheck
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(
+        builder: (_) => authProvider.isLoggedIn ? const HomePage() : const LoginPage(),
+      ),
+      (route) => false,
+    );
   }
 
   @override

@@ -37,6 +37,11 @@ function verifyCsrfToken(&$tokenIndex = null, $reuse = true) {
     return false;
 }
 
+function validateSearchKeyword($keyword) {
+    if (strlen($keyword) > 100) return false;
+    return $keyword;
+}
+
 if($islogin2 && $userrow['level']>0){
 	$conf['upload_limit']=0;
 	$conf['videoreview']=0;
@@ -85,13 +90,30 @@ case 'file_list':
 	$keyword = isset($_GET['keyword']) ? trim($_GET['keyword']) : '';
 	$hide = isset($_GET['hide']) ? intval($_GET['hide']) : 0;
 
-	$sql = "SELECT * FROM pre_file WHERE uid=$uid AND is_deleted=0";
-	if($folder_id > 0) $sql .= " AND folder_id=$folder_id";
-	if($hide == 0) $sql .= " AND hide=0";
-	if(!empty($keyword)) $sql .= " AND name LIKE '%$keyword%'";
+	if(!empty($keyword)) {
+		$validatedKeyword = validateSearchKeyword($keyword);
+		if($validatedKeyword === false) {
+			exit(json_encode(['code'=>-1, 'msg'=>'搜索关键词格式不正确']));
+		}
+		$keyword = $validatedKeyword;
+	}
+
+	$sql = "SELECT * FROM pre_file WHERE uid=:uid AND is_deleted=0";
+	$params = [':uid' => $uid];
+	if($folder_id > 0) {
+		$sql .= " AND folder_id=:folder_id";
+		$params[':folder_id'] = $folder_id;
+	}
+	if($hide == 0) {
+		$sql .= " AND hide=0";
+	}
+	if(!empty($keyword)) {
+		$sql .= " AND name LIKE :keyword";
+		$params[':keyword'] = '%' . $keyword . '%';
+	}
 	$sql .= " ORDER BY id DESC LIMIT 200";
 
-	$rs = $DB->query($sql);
+	$rs = $DB->query($sql, $params);
 	$files = [];
 	while($row = $rs->fetch()){
 		$files[] = $row;

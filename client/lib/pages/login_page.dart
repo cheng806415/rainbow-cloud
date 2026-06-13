@@ -26,6 +26,9 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    // 注册密码一致性实时校验
+    _regPasswordController.addListener(_onRegPasswordChanged);
+    _regRepasswordController.addListener(_onRegPasswordChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<AuthProvider>().initServerUrl();
     });
@@ -34,12 +37,32 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
   @override
   void dispose() {
     _tabController.dispose();
+    _regPasswordController.removeListener(_onRegPasswordChanged);
+    _regRepasswordController.removeListener(_onRegPasswordChanged);
     _loginUsernameController.dispose();
     _loginPasswordController.dispose();
     _regUsernameController.dispose();
     _regPasswordController.dispose();
     _regRepasswordController.dispose();
     super.dispose();
+  }
+
+  void _onRegPasswordChanged() {
+    // 触发 register form 重新校验
+    _registerFormKey.currentState?.validate();
+  }
+
+  String? _validatePassword(String? v) {
+    if (v == null || v.isEmpty) return '请输入密码';
+    if (v.length < 6 || v.length > 20) return '密码长度必须在6-20位之间';
+    if (!RegExp(r'^[a-zA-Z0-9]+$').hasMatch(v)) return '密码只能包含字母和数字';
+    return null;
+  }
+
+  String? _validateRepassword(String? v) {
+    if (v == null || v.isEmpty) return '请再次输入密码';
+    if (_regPasswordController.text != v) return '两次输入的密码不一致';
+    return null;
   }
 
   Future<void> _handleLogin() async {
@@ -208,7 +231,7 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
               helperText: '6-20位字母或数字',
             ),
             obscureText: true,
-            validator: (v) => v == null || v.isEmpty ? '请输入密码' : null,
+            validator: _validatePassword,
           ),
           const SizedBox(height: 16),
           TextFormField(
@@ -219,7 +242,7 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
               border: OutlineInputBorder(),
             ),
             obscureText: true,
-            validator: (v) => v == null || v.isEmpty ? '请再次输入密码' : null,
+            validator: _validateRepassword,
           ),
           const SizedBox(height: 24),
           SizedBox(

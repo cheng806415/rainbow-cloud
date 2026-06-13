@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
 import '../models/file_model.dart';
 import '../utils/api_client.dart';
 import '../utils/app_logger.dart';
+import '../utils/download_manager.dart';
 
 class PreviewPage extends StatefulWidget {
   final FileModel file;
@@ -80,16 +82,11 @@ class _PreviewPageState extends State<PreviewPage> {
   }
 
   String _getFileUrl() {
-    return '${_getBaseUrl()}/view.php/${widget.file.hash}.${widget.file.type ?? ''}';
+    return ApiClient().getFileUrl(widget.file);
   }
 
   String _getDownloadUrl() {
-    return '${_getBaseUrl()}/down.php/${widget.file.hash}.${widget.file.type ?? ''}';
-  }
-
-  String _getBaseUrl() {
-    // We'll get this from context in a real implementation
-    return 'https://pan.example.com';
+    return ApiClient().getDownloadUrl(widget.file);
   }
 
   @override
@@ -108,11 +105,22 @@ class _PreviewPageState extends State<PreviewPage> {
           IconButton(
             icon: const Icon(Icons.download),
             onPressed: () {
+              DownloadManager().startDownload(widget.file);
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('下载链接: ${_getDownloadUrl()}')),
+                SnackBar(content: Text('已添加下载任务: ${widget.file.name}')),
               );
             },
             tooltip: '下载',
+          ),
+          IconButton(
+            icon: const Icon(Icons.link),
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: _getDownloadUrl()));
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('下载链接已复制'), duration: Duration(seconds: 1)),
+              );
+            },
+            tooltip: '复制链接',
           ),
         ],
       ),
@@ -252,9 +260,9 @@ class _PreviewPageState extends State<PreviewPage> {
                     Text(info['name'] ?? widget.file.name, style: Theme.of(context).textTheme.titleMedium),
                     const SizedBox(height: 4),
                     Text(
-                      '${info['archive_type'].toString().toUpperCase()} | '
-                      '解压后: ${_formatBytes(info['total_size'] ?? 0)} | '
-                      '${info['file_count']} 个文件, ${info['dir_count']} 个文件夹',
+                      '${(info['archive_type'] ?? 'zip').toString().toUpperCase()} | '
+                      '解压后: ${_formatBytes((info['total_size'] as num?)?.toInt() ?? 0)} | '
+                      '${info['file_count'] ?? 0} 个文件, ${info['dir_count'] ?? 0} 个文件夹',
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ],

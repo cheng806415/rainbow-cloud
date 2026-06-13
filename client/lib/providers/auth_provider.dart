@@ -2,14 +2,17 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../utils/api_client.dart';
+import '../utils/app_logger.dart';
 import '../utils/constants.dart';
 
 class AuthProvider extends ChangeNotifier {
   final _storage = const FlutterSecureStorage();
   final _apiClient = ApiClient();
+  final _appLogger = AppLogger();
 
   String _serverUrl = AppConstants.defaultServerUrl;
   Timer? _heartbeatTimer;
+  bool _disposed = false;
 
   String get serverUrl => _serverUrl;
   bool get isLoggedIn => _apiClient.isLoggedIn;
@@ -75,8 +78,9 @@ class AuthProvider extends ChangeNotifier {
     _heartbeatTimer = Timer.periodic(const Duration(seconds: 60), (timer) async {
       try {
         await _apiClient.loadUserInfo();
+        if (!_disposed) notifyListeners();
       } catch (e) {
-        // 心跳失败，可能需要重新登录
+        _appLogger.w('AuthProvider', 'heartbeat error: $e');
       }
     });
   }
@@ -90,6 +94,7 @@ class AuthProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
     _stopHeartbeat();
     super.dispose();
   }

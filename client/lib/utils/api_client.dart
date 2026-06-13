@@ -1,11 +1,11 @@
 import 'dart:convert';
-import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 import 'package:dio_cookie_manager/dio_cookie_manager.dart';
 import 'package:cookie_jar/cookie_jar.dart';
 import '../utils/constants.dart';
 import '../utils/app_logger.dart';
 import '../models/file_model.dart';
+import '../models/share_model.dart';
 
 class ApiClient {
   static final ApiClient _instance = ApiClient._internal();
@@ -154,9 +154,23 @@ class ApiClient {
   }
 
   Future<void> logout() async {
+    // 通知服务器注销,失败也继续清本地
+    try {
+      final token = await ensureCsrfToken();
+      if (token != null) {
+        await _dio.post('/login.php',
+          queryParameters: {'act': 'logout'},
+          data: FormData.fromMap({'csrf_token': token}),
+        ).timeout(const Duration(seconds: 3));
+        AppLogger().i('ApiClient', 'server logout ok');
+      }
+    } catch (e) {
+      AppLogger().w('ApiClient', 'server logout failed (continuing local clear): $e');
+    }
     _isLoggedIn = false;
     _userId = 0;
     _userInfo.clear();
+    _csrfToken = null;
     _cookieJar = CookieJar();
     _dio = Dio(BaseOptions(
       baseUrl: _baseUrl,
@@ -166,6 +180,134 @@ class ApiClient {
     ));
     _dio.interceptors.add(CookieManager(_cookieJar));
   }
+
+  // ============== 回收站 ==============
+
+  Future<List<FileModel>> loadRecycleList() async {
+    try {
+      final response = await _dio.get('/ajax.php', queryParameters: {'act': 'recycle_list'});
+      final data = _safeResponse(response);
+      if (data['code'] == 0 && data['files'] is List) {
+        return (data['files'] as List).map((e) => FileModel.fromJson(e)).toList();
+      }
+    } catch (e) {
+      AppLogger().e('ApiClient', 'loadRecycleList error: $e');
+    }
+    return [];
+  }
+
+  Future<bool> restoreFile(String hash) async {
+    final token = await ensureCsrfToken();
+    final response = await _dio.post('/ajax.php',
+      queryParameters: {'act': 'restoreFile'},
+      data: FormData.fromMap({'csrf_token': token, 'hash': hash}),
+    );
+    final data = _safeResponse(response);
+    return data['code'] == 0;
+  }
+
+  Future<bool> permanentDelete(String hash) async {
+    final token = await ensureCsrfToken();
+    final response = await _dio.post('/ajax.php',
+      queryParameters: {'act': 'permanentDelete'},
+      data: FormData.fromMap({'csrf_token': token, 'hash': hash}),
+    );
+    final data = _safeResponse(response);
+    return data['code'] == 0;
+  }
+
+  // ============== 分享 ==============
+
+  Future<List<ShareModel>> loadShareList() async {
+    try {
+      final response = await _dio.get('/ajax.php', queryParameters: {'act': 'share_list'});
+      final data = _safeResponse(response);
+      if (data['code'] == 0 && data['shares'] is List) {
+        return (data['shares'] as List).map((e) => ShareModel.fromJson(_normalizeShareJson(e))).toList();
+      }
+    } catch (e) {
+      AppLogger().e('ApiClient', 'loadShareList error: $e');
+    }
+    return [];
+  }
+
+  Map<String, dynamic> _normalizeShareJson(dynamic raw) {
+    final shareData = Map<String, dynamic>.from(raw);
+    if (shareData['file'] == null && shareData['file_name'] != null) {
+      shareData['file'] = {
+        'id': shareData['file_id'] ?? 0,
+        'name': shareData['file_name'] ?? '未知文件',
+        'size': shareData['file_size'] ?? 0,
+        'hash': shareData['file_hash'] ?? '',
+        'type': shareData['file_type'] ?? '',
+      };
+    }
+    return shareData;
+  }
+
+  Future<Map<String, dynamic>?> createShare(int fileId, {String? pwd, int expireType = 0}) async {
+    final token = await ensureCsrfToken();
+    if (token == null) return null;
+    final response = await _dio.post('/ajax.php',
+      queryParameters: {'act': 'create_share'},
+      data: FormData.fromMap({
+        'csrf_token': token,
+        'file_id': fileId,
+        'pwd': pwd ?? '',
+        'expire_type': expireType,
+      }),
+    );
+    final data = _safeResponse(response);
+    if (data['code'] == 0) {
+      return {'surl': data['surl'], 'pwd': pwd};
+    }
+    return {'error': data['msg'] ?? '创建失败'};
+  }
+
+  Future<bool> deleteShare(String surl) async {
+    final token = await ensureCsrfToken();
+    final response = await _dio.post('/ajax.php',
+      queryParameters: {'act': 'delete_share'},
+      data: FormData.fromMap({'csrf_token': token, 'surl': surl}),
+    );
+    final data = _safeResponse(response);
+    return data['code'] == 0;
+  }
+
+  // ============== 用户设置 ==============
+
+  Future<bool> updateNickname(String nickname) async {
+    final token = await ensureCsrfToken();
+    if (token == null) return false;
+    final response = await _dio.post('/ajax.php',
+      queryParameters: {'act': 'saveUserSettings'},
+      data: FormData.fromMap({'csrf_token': token, 'action': 'nickname', 'nickname': nickname}),
+    );
+    final data = _safeResponse(response);
+    if (data['code'] == 0) {
+      _userInfo['nickname'] = nickname;
+      return true;
+    }
+    return false;
+  }
+
+  Future<bool> updatePassword(String oldPassword, String newPassword) async {
+    final token = await ensureCsrfToken();
+    if (token == null) return false;
+    final response = await _dio.post('/ajax.php',
+      queryParameters: {'act': 'saveUserSettings'},
+      data: FormData.fromMap({
+        'csrf_token': token,
+        'action': 'password',
+        'old_password': oldPassword,
+        'new_password': newPassword,
+      }),
+    );
+    final data = _safeResponse(response);
+    return data['code'] == 0;
+  }
+
+  // ============== 通用 GET/POST ==============
 
   Future<Response> get(String path, {Map<String, dynamic>? params}) async {
     return await _dio.get(path, queryParameters: params);
@@ -196,10 +338,18 @@ class ApiClient {
   }
 
   String getFileUrl(FileModel file) {
+    if (file.hash.isEmpty) {
+      AppLogger().w('ApiClient', 'getFileUrl: hash 为空,${file.name}');
+      return '';
+    }
     return '$_baseUrl/view.php/${file.hash}.${file.type ?? ''}';
   }
 
   String getDownloadUrl(FileModel file) {
+    if (file.hash.isEmpty) {
+      AppLogger().w('ApiClient', 'getDownloadUrl: hash 为空,${file.name}');
+      return '';
+    }
     return '$_baseUrl/down.php/${file.hash}.${file.type ?? ''}';
   }
 

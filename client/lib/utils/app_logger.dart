@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -47,6 +49,8 @@ class AppLogger {
   LogLevel _level = LogLevel.none;
   File? _logFile;
   bool _initialized = false;
+  final List<String> _pendingLines = [];
+  bool _flushing = false;
 
   LogLevel get level => _level;
 
@@ -57,6 +61,10 @@ class AppLogger {
     _level = LogLevel.fromValue(saved);
     await _initLogFile();
     _initialized = true;
+    // 启动时如果缓存里有内容,异步刷盘
+    if (_pendingLines.isNotEmpty) {
+      unawaited(_flush());
+    }
   }
 
   Future<void> _initLogFile() async {
@@ -90,15 +98,45 @@ class AppLogger {
         '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}.${now.millisecond.toString().padLeft(3, '0')}';
     final line = '[$timeStr] [${level.name.toUpperCase()}] [$tag] $message';
     print(line);
-    _writeToFile(line);
+    _enqueueLine(line);
   }
 
-  void _writeToFile(String line) {
-    if (_logFile == null) return;
+  void _enqueueLine(String line) {
+    _pendingLines.add(line);
+    // 防抖:50ms 内多条合并刷一次盘
+    if (!_flushing) {
+      _flushing = true;
+      Timer(const Duration(milliseconds: 50), () {
+        unawaited(_flush());
+      });
+    }
+  }
+
+  Future<void> _flush() async {
+    if (_logFile == null || _pendingLines.isEmpty) {
+      _flushing = false;
+      return;
+    }
+    final toWrite = List<String>.from(_pendingLines);
+    _pendingLines.clear();
     try {
-      _logFile!.writeAsStringSync('$line\n', mode: FileMode.append);
+      await _logFile!.writeAsString(
+        '${toWrite.join('\n')}\n',
+        mode: FileMode.append,
+        flush: false,
+      );
     } catch (e) {
-      print('[Logger] write file failed: $e');
+      // 刷盘失败,把内容塞回去不丢日志
+      _pendingLines.insertAll(0, toWrite);
+      print('[Logger] flush failed: $e');
+    } finally {
+      _flushing = false;
+      if (_pendingLines.isNotEmpty) {
+        _flushing = true;
+        Timer(const Duration(milliseconds: 50), () {
+          unawaited(_flush());
+        });
+      }
     }
   }
 
@@ -109,8 +147,22 @@ class AppLogger {
   void e(String tag, String message) => _log(LogLevel.error, tag, message);
 
   Future<String> getLogContent() async {
+    // 先把缓冲区刷下去
+    await _flush();
     if (_logFile == null || !await _logFile!.exists()) return '';
     try {
+      // 限制读取最后 200KB 避免 OOM
+      final length = await _logFile!.length();
+      if (length > 200 * 1024) {
+        final raf = await _logFile!.open();
+        try {
+          await raf.setPosition(length - 200 * 1024);
+          final bytes = await raf.read(length - (length - 200 * 1024));
+          return utf8.decode(bytes, allowMalformed: true);
+        } finally {
+          await raf.close();
+        }
+      }
       return await _logFile!.readAsString();
     } catch (e) {
       return '读取日志失败: $e';
@@ -122,6 +174,7 @@ class AppLogger {
   }
 
   Future<void> clearLogs() async {
+    _pendingLines.clear();
     try {
       final dir = await getApplicationDocumentsDirectory();
       final logDir = Directory('${dir.path}/logs');

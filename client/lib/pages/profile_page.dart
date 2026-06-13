@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/theme_provider.dart';
+import '../utils/api_client.dart';
 import 'login_page.dart';
 
 class ProfilePage extends StatelessWidget {
@@ -65,7 +66,7 @@ class ProfilePage extends StatelessWidget {
         gradient: LinearGradient(
           colors: [
             Theme.of(context).colorScheme.primary,
-            Theme.of(context).colorScheme.primary.withOpacity(0.7),
+            Theme.of(context).colorScheme.primary.withValues(alpha: 0.7),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -75,11 +76,11 @@ class ProfilePage extends StatelessWidget {
         children: [
           CircleAvatar(
             radius: 40,
-            backgroundColor: Colors.white.withOpacity(0.3),
+            backgroundColor: Colors.white.withValues(alpha: 0.3),
             child: authProvider.avatar.isNotEmpty
                 ? ClipOval(
                     child: Image.network(
-                      '${authProvider.serverUrl}/${authProvider.avatar}',
+                      _resolveAvatarUrl(authProvider.avatar),
                       width: 80,
                       height: 80,
                       fit: BoxFit.cover,
@@ -97,7 +98,7 @@ class ProfilePage extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.3),
+              color: Colors.white.withValues(alpha: 0.3),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
@@ -167,7 +168,7 @@ class ProfilePage extends StatelessWidget {
   Widget _buildStorageCard(BuildContext context, AuthProvider authProvider) {
     final used = authProvider.storageUsed;
     final quota = authProvider.storageQuota;
-    final percent = quota > 0 ? (used / quota * 100).clamp(0.0, 100.0) : 0.0;
+    final percent = quota > 0 ? (used / quota).clamp(0.0, 1.0) : 0.0;
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -185,7 +186,7 @@ class ProfilePage extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             LinearProgressIndicator(
-              value: percent / 100,
+              value: percent,
               minHeight: 8,
               borderRadius: BorderRadius.circular(4),
             ),
@@ -284,59 +285,137 @@ class ProfilePage extends StatelessWidget {
 
   void _showEditNickname(BuildContext context, AuthProvider authProvider) {
     final controller = TextEditingController(text: authProvider.nickname);
+    bool submitting = false;
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('修改昵称'),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(labelText: '昵称', border: OutlineInputBorder()),
-          maxLength: 20,
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('取消')),
-          FilledButton(
-            onPressed: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('昵称修改成功')),
-              );
-            },
-            child: const Text('保存'),
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setLocal) => AlertDialog(
+            title: const Text('修改昵称'),
+            content: TextField(
+              controller: controller,
+              decoration: const InputDecoration(labelText: '昵称', border: OutlineInputBorder()),
+              maxLength: 20,
+            ),
+            actions: [
+              TextButton(
+                onPressed: submitting ? null : () => Navigator.pop(dialogContext),
+                child: const Text('取消'),
+              ),
+              FilledButton(
+                onPressed: submitting
+                    ? null
+                    : () async {
+                        final name = controller.text.trim();
+                        if (name.isEmpty) return;
+                        setLocal(() => submitting = true);
+                        final ok = await ApiClient().updateNickname(name);
+                        if (!dialogContext.mounted) return;
+                        Navigator.pop(dialogContext);
+                        if (!context.mounted) return;
+                        if (ok) {
+                          await authProvider.loadUserInfo();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('昵称修改成功'), backgroundColor: Colors.green),
+                          );
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('昵称修改失败'), backgroundColor: Colors.red),
+                          );
+                        }
+                      },
+                child: submitting
+                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Text('保存'),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
   void _showChangePassword(BuildContext context, AuthProvider authProvider) {
     final oldCtrl = TextEditingController();
     final newCtrl = TextEditingController();
+    bool submitting = false;
+    String? errorText;
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('修改密码'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: oldCtrl,
-              decoration: const InputDecoration(labelText: '当前密码', border: OutlineInputBorder()),
-              obscureText: true,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setLocal) => AlertDialog(
+            title: const Text('修改密码'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: oldCtrl,
+                  decoration: const InputDecoration(labelText: '当前密码', border: OutlineInputBorder()),
+                  obscureText: true,
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: newCtrl,
+                  decoration: const InputDecoration(
+                    labelText: '新密码(6-20位字母或数字)',
+                    border: OutlineInputBorder(),
+                  ),
+                  obscureText: true,
+                ),
+                if (errorText != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(errorText!, style: const TextStyle(color: Colors.red, fontSize: 12)),
+                  ),
+              ],
             ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: newCtrl,
-              decoration: const InputDecoration(labelText: '新密码', border: OutlineInputBorder()),
-              obscureText: true,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('取消')),
-          FilledButton(onPressed: () => Navigator.pop(context), child: const Text('确认')),
-        ],
-      ),
+            actions: [
+              TextButton(
+                onPressed: submitting ? null : () => Navigator.pop(dialogContext),
+                child: const Text('取消'),
+              ),
+              FilledButton(
+                onPressed: submitting
+                    ? null
+                    : () async {
+                        final oldPwd = oldCtrl.text;
+                        final newPwd = newCtrl.text;
+                        if (oldPwd.isEmpty || newPwd.isEmpty) {
+                          setLocal(() => errorText = '请填写完整');
+                          return;
+                        }
+                        if (newPwd.length < 6 || newPwd.length > 20) {
+                          setLocal(() => errorText = '新密码长度必须在6-20位之间');
+                          return;
+                        }
+                        if (!RegExp(r'^[a-zA-Z0-9]+$').hasMatch(newPwd)) {
+                          setLocal(() => errorText = '新密码只能包含字母和数字');
+                          return;
+                        }
+                        setLocal(() {
+                          submitting = true;
+                          errorText = null;
+                        });
+                        final ok = await ApiClient().updatePassword(oldPwd, newPwd);
+                        if (!dialogContext.mounted) return;
+                        Navigator.pop(dialogContext);
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(ok ? '密码修改成功' : '密码修改失败,请检查当前密码是否正确'),
+                            backgroundColor: ok ? Colors.green : Colors.red,
+                          ),
+                        );
+                      },
+                child: submitting
+                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Text('确认'),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -373,5 +452,20 @@ class ProfilePage extends StatelessWidget {
     if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
     if (bytes < 1024 * 1024 * 1024) return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
     return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
+  }
+
+  String _resolveAvatarUrl(String avatar) {
+    if (avatar.isEmpty) return '';
+    if (avatar.startsWith('http://') || avatar.startsWith('https://')) {
+      return avatar;
+    }
+    final base = ApiClient().baseUrl;
+    if (avatar.startsWith('./')) {
+      return '$base/${avatar.substring(2)}';
+    }
+    if (avatar.startsWith('/')) {
+      return '$base$avatar';
+    }
+    return '$base/$avatar';
   }
 }

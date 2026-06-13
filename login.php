@@ -5,7 +5,11 @@ if(!$conf['userlogin']){
     @header('Content-Type: text/html; charset=UTF-8');
 	exit("<script language='javascript'>alert('未开启登录');window.location.href='./';</script>");
 }
-if(isset($_GET['logout'])){
+if(isset($_GET['act']) && $_GET['act']=='logout'){
+    @header('Content-Type: application/json; charset=UTF-8');
+    setcookie("user_token", "", time() - 1, '/');
+    exit(json_encode(['code'=>0, 'msg'=>'已注销']));
+}elseif(isset($_GET['logout'])){
 	if(!checkRefererHost())exit();
 	setcookie("user_token", "", time() - 1, '/');
 	@header('Content-Type: text/html; charset=UTF-8');
