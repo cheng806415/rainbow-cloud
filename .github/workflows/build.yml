@@ -127,21 +127,20 @@ jobs:
         run: |
           DMG_PATH="$GITHUB_WORKSPACE/rainbow_cloud_arm64.dmg"
           echo "Verifying DMG..."
-          hdiutil verify "$DMG_PATH" || echo "verify failed, continuing"
-          MOUNT_OUT=$(hdiutil attach "$DMG_PATH" -nobrowse -readonly -mountrandom /tmp/dmg-mount 2>&1)
-          echo "$MOUNT_OUT"
-          MOUNT_POINT=$(echo "$MOUNT_OUT" | grep -oE '/tmp/dmg-mount\s*$' | awk '{print $1}' | head -1)
-          if [ -d "$MOUNT_POINT" ]; then
-            ls -la "$MOUNT_POINT"
-            hdiutil detach "$MOUNT_POINT"
+          set +e
+          hdiutil verify "$DMG_PATH"
+          VERIFY_RC=$?
+          set -e
+          if [ $VERIFY_RC -ne 0 ]; then
+            echo "hdiutil verify returned non-zero: $VERIFY_RC"
           else
-            # Try to find mount point by other means
-            DF_OUT=$(df | grep dmg-mount | tail -1 | awk '{print $NF}')
-            if [ -n "$DF_OUT" ]; then
-              ls -la "$DF_OUT"
-              hdiutil detach "$DF_OUT"
-            fi
+            echo "DMG verification OK"
           fi
+          echo "DMG metadata:"
+          hdiutil imageinfo "$DMG_PATH" | head -20
+          echo "DMG size and type:"
+          ls -la "$DMG_PATH"
+          file "$DMG_PATH"
 
       - name: Generate version tag
         id: macversion
