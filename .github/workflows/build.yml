@@ -41,8 +41,8 @@ jobs:
       - name: Prepare artifacts
         run: |
           mkdir -p android-artifacts
-          cp client/build/app/outputs/flutter-apk/app-release.apk android-artifacts/rainbow_cloud_v${{ github.ref_name }}.apk
-          cp client/build/app/outputs/bundle/release/app-release.aab android-artifacts/rainbow_cloud_v${{ github.ref_name }}.aab
+          cp client/build/app/outputs/flutter-apk/app-release.apk android-artifacts/rainbow_cloud_${{ github.ref_name }}.apk
+          cp client/build/app/outputs/bundle/release/app-release.aab android-artifacts/rainbow_cloud_${{ github.ref_name }}.aab
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
@@ -177,7 +177,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: server-${{ github.ref_name }}
-          name: "Rainbow Cloud v${{ github.ref_name }} - Server"
+          name: "Rainbow Cloud ${{ github.ref_name }} - Server"
           body: |
             ## 彩虹外链网盘 - PHP 服务端
 
@@ -223,7 +223,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: android-${{ github.ref_name }}
-          name: "Rainbow Cloud v${{ github.ref_name }} - Android"
+          name: "Rainbow Cloud ${{ github.ref_name }} - Android"
           body: |
             ## 彩虹外链网盘 - Android 客户端
 
@@ -268,7 +268,7 @@ jobs:
         continue-on-error: true
         with:
           tag_name: windows-${{ github.ref_name }}
-          name: "Rainbow Cloud v${{ github.ref_name }} - Windows"
+          name: "Rainbow Cloud ${{ github.ref_name }} - Windows"
           body: |
             ## 彩虹外链网盘 - Windows 客户端
 
@@ -305,7 +305,7 @@ jobs:
         continue-on-error: true
         with:
           tag_name: macos-${{ github.ref_name }}
-          name: "Rainbow Cloud v${{ github.ref_name }} - macOS"
+          name: "Rainbow Cloud ${{ github.ref_name }} - macOS"
           body: |
             ## 彩虹外链网盘 - macOS 客户端
 
