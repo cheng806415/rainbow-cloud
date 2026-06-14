@@ -3,58 +3,53 @@ client/build/
 client/.dart_tool/
 client/.flutter-plugins*
 
-# PHP session/temp files
+# Flutter artifacts (release builds)
+client/artifacts-*/
+
+# ZIP packages (root level only)
+/*.zip
+
+# Log and text output files
 *.log
 *.tmp
 *.swp
+/*.txt
+/*.json
 
-# ZIP packages
-update_*.zip
-client_package_*.zip
-update_all_*.zip
-flutter_*.txt
+# PowerShell / Shell scripts (root level only)
+/*.ps1
+/*.sh
 
 # IDE
 .vscode/
 .idea/
+*.iml
 
 # OS
 .DS_Store
 Thumbs.db
 
-# Environment
+# Environment / sensitive files
 config.php.bak
 
-# Temporary files
-_*.txt
-_temp_*.txt
-_gh*.txt
-_dl.txt
-_jobs.txt
+# Uploaded files (keep .htaccess)
+file/*
+!file/.htaccess
 
-# Build outputs
-build_output/
-release_output/
-artifacts/
-client/artifacts/
-client/artifacts-*/
+# Backup directories (any date-stamped dirs)
+*-*-*-*-*/
+*-*-*-*-*-*/
 
-# Packages
-*.zip
-!client/incremental_update_*.zip
-incremental_fix_cdn/
-full_package/
-full_package_v2/
-new-artifacts/
-new-artifacts-*/
+# Temp / debug files
+debug_*
+deploy_api.*
+*-test.*
+test_*
+create_zip.php
+create_update*
+make_incremental.*
+push_fix.*
+backup.*
 
-# Backup folders
-澶囦唤/
-澶囦唤*/
-备份/
-
-# Test files
-test-*.ps1
-debug_upload.php
-check-site.ps1
-upload_log.txt
+# Trae workspace
+.trae/
