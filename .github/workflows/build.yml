@@ -1,176 +1,26 @@
-name: Flutter Build & Release
+name: Build & Release
 
 on:
   push:
-    branches: [ main ]
-    paths:
-      - 'client/**'
-  pull_request:
-    branches: [ main ]
-    paths:
-      - 'client/**'
+    tags:
+      - 'v*'
   workflow_dispatch:
 
 jobs:
-  build-windows:
-    name: Build Windows
-    runs-on: windows-latest
-    continue-on-error: true
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.44.0'
-          channel: 'stable'
-          cache: true
-
-      - name: Get dependencies
-        run: flutter pub get
-        working-directory: client
-
-      - name: Build Windows
-        run: flutter build windows --release
-        working-directory: client
-
-      - name: Create Windows distribution
-        run: |
-          cd client\build\windows\x64\runner\Release
-          Compress-Archive -Path * -DestinationPath "$env:GITHUB_WORKSPACE\rainbow_cloud_windows.zip" -Force
-        shell: pwsh
-
-      - name: Upload Windows artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: rainbow_cloud_windows
-          path: rainbow_cloud_windows.zip
-
-  build-macos:
-    name: Build macOS (ARM64 DMG)
-    runs-on: macos-14  # Apple Silicon runner
-    continue-on-error: true
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.44.0'
-          channel: 'stable'
-          cache: true
-
-      - name: Verify ARM64 host
-        run: |
-          echo "Architecture: $(uname -m)"
-          echo "Host: $(sw_vers -productVersion)"
-
-      - name: Get dependencies
-        run: flutter pub get
-        working-directory: client
-
-      - name: Build macOS (ARM64)
-        run: |
-          flutter config --no-analytics
-          flutter config --no-enable-swift-package-manager
-          flutter build macos --release
-        working-directory: client
-
-      - name: Verify ARM64 binary
-        run: |
-          APP_PATH="client/build/macos/Build/Products/Release/rainbow_cloud.app"
-          BIN="$APP_PATH/Contents/MacOS/rainbow_cloud"
-          echo "Binary architectures:"
-          file "$BIN"
-          lipo -archs "$BIN"
-          if ! lipo -archs "$BIN" | grep -q "arm64"; then
-            echo "ERROR: Binary is not arm64"
-            exit 1
-          fi
-          echo "ARM64 verified OK"
-
-      - name: Apply ad-hoc code signing
-        run: |
-          APP_PATH="client/build/macos/Build/Products/Release/rainbow_cloud.app"
-          echo "Applying ad-hoc signature..."
-          codesign --force --deep --sign - "$APP_PATH"
-          codesign --verify --verbose=2 "$APP_PATH" || echo "Ad-hoc signature noted (will require Gatekeeper override on first run)"
-
-      - name: Create DMG staging
-        run: |
-          STAGING="$GITHUB_WORKSPACE/dmg-staging"
-          rm -rf "$STAGING"
-          mkdir -p "$STAGING"
-          cp -R "client/build/macos/Build/Products/Release/rainbow_cloud.app" "$STAGING/"
-          ln -s /Applications "$STAGING/Applications"
-          ls -la "$STAGING"
-
-      - name: Build ARM64 DMG
-        run: |
-          STAGING="$GITHUB_WORKSPACE/dmg-staging"
-          DMG_PATH="$GITHUB_WORKSPACE/rainbow_cloud_arm64.dmg"
-          rm -f "$DMG_PATH"
-          hdiutil create \
-            -volname "Rainbow Cloud" \
-            -srcfolder "$STAGING" \
-            -ov \
-            -format UDZO \
-            -fs HFS+ \
-            "$DMG_PATH"
-          echo "DMG created:"
-          ls -la "$DMG_PATH"
-          file "$DMG_PATH"
-
-      - name: Verify DMG integrity
-        run: |
-          DMG_PATH="$GITHUB_WORKSPACE/rainbow_cloud_arm64.dmg"
-          echo "Verifying DMG..."
-          set +e
-          hdiutil verify "$DMG_PATH"
-          VERIFY_RC=$?
-          set -e
-          if [ $VERIFY_RC -ne 0 ]; then
-            echo "hdiutil verify returned non-zero: $VERIFY_RC"
-          else
-            echo "DMG verification OK"
-          fi
-          echo "DMG metadata:"
-          hdiutil imageinfo "$DMG_PATH" | head -20
-          echo "DMG size and type:"
-          ls -la "$DMG_PATH"
-          file "$DMG_PATH"
-
-      - name: Generate version tag
-        id: macversion
-        run: |
-          DATETIME=$(TZ='Asia/Shanghai' date +'%Y%m%d-%H%M')
-          echo "tag=v${DATETIME}" >> $GITHUB_OUTPUT
-          echo "name=v${DATETIME}" >> $GITHUB_OUTPUT
-
-      - name: Upload DMG artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: rainbow_cloud_macos_dmg
-          path: rainbow_cloud_arm64.dmg
-          if-no-files-found: error
+  # ==================== 构建 ====================
 
   build-android:
-    name: Build Android
+    name: Build Android (APK + AAB)
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Java
-        uses: actions/setup-java@v4
+      - uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.44.0'
           channel: 'stable'
@@ -188,110 +38,288 @@ jobs:
         run: flutter build appbundle --release
         working-directory: client
 
+      - name: Prepare artifacts
+        run: |
+          mkdir -p android-artifacts
+          cp client/build/app/outputs/flutter-apk/app-release.apk android-artifacts/rainbow_cloud_v${{ github.ref_name }}.apk
+          cp client/build/app/outputs/bundle/release/app-release.aab android-artifacts/rainbow_cloud_v${{ github.ref_name }}.aab
+
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: rainbow_cloud_android_apk
-          path: client/build/app/outputs/flutter-apk/app-release.apk
+          name: android-apk
+          path: android-artifacts/rainbow_cloud_v${{ github.ref_name }}.apk
 
-      - name: Upload App Bundle artifact
+      - name: Upload AAB artifact
         uses: actions/upload-artifact@v4
         with:
-          name: rainbow_cloud_android_aab
-          path: client/build/app/outputs/bundle/release/app-release.aab
+          name: android-aab
+          path: android-artifacts/rainbow_cloud_v${{ github.ref_name }}.aab
 
-  create-release:
-    name: Create GitHub Release
-    needs: [build-android, build-windows, build-macos]
-    if: github.event_name != 'pull_request'
+  build-windows:
+    name: Build Windows
+    runs-on: windows-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.0'
+          channel: 'stable'
+          cache: true
+
+      - name: Get dependencies
+        run: flutter pub get
+        working-directory: client
+
+      - name: Build Windows
+        run: flutter build windows --release
+        working-directory: client
+
+      - name: Package Windows
+        run: |
+          $version = "$env:GITHUB_REF_NAME" -replace '^v',''
+          cd client\build\windows\x64\runner\Release
+          Compress-Archive -Path * -DestinationPath "$env:GITHUB_WORKSPACE\rainbow_cloud_windows_v$version.zip" -Force
+        shell: pwsh
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-zip
+          path: rainbow_cloud_windows_v*.zip
+
+  build-macos:
+    name: Build macOS (ARM64 DMG)
+    runs-on: macos-14
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.0'
+          channel: 'stable'
+          cache: true
+
+      - name: Get dependencies
+        run: flutter pub get
+        working-directory: client
+
+      - name: Build macOS (ARM64)
+        run: |
+          flutter config --no-analytics
+          flutter config --no-enable-swift-package-manager
+          flutter build macos --release
+        working-directory: client
+
+      - name: Verify ARM64 binary
+        run: |
+          APP_PATH="client/build/macos/Build/Products/Release/rainbow_cloud.app"
+          BIN="$APP_PATH/Contents/MacOS/rainbow_cloud"
+          file "$BIN"
+          if ! lipo -archs "$BIN" | grep -q "arm64"; then
+            echo "ERROR: Binary is not arm64"
+            exit 1
+          fi
+
+      - name: Code sign & create DMG
+        run: |
+          APP_PATH="client/build/macos/Build/Products/Release/rainbow_cloud.app"
+          codesign --force --deep --sign - "$APP_PATH"
+          
+          STAGING="$GITHUB_WORKSPACE/dmg-staging"
+          rm -rf "$STAGING"
+          mkdir -p "$STAGING"
+          cp -R "$APP_PATH" "$STAGING/"
+          ln -s /Applications "$STAGING/Applications"
+          
+          VERSION="${GITHUB_REF_NAME#v}"
+          DMG_PATH="$GITHUB_WORKSPACE/rainbow_cloud_macos_v${VERSION}.dmg"
+          hdiutil create \
+            -volname "Rainbow Cloud" \
+            -srcfolder "$STAGING" \
+            -ov -format UDZO -fs HFS+ \
+            "$DMG_PATH"
+
+      - name: Upload macOS DMG artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-dmg
+          path: rainbow_cloud_macos_v*.dmg
+
+  # ==================== 发布：服务端 ====================
+
+  release-server:
+    name: Release Server (PHP)
+    needs: [build-android]
+    if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Download Android APK
-        uses: actions/download-artifact@v4
-        with:
-          name: rainbow_cloud_android_apk
-          path: android_apk_dir
-          merge-multiple: false
-
-      - name: Locate Android APK
+      - name: Create server source archive
         run: |
-          find android_apk_dir -name "*.apk" -type f -exec cp {} app-release.apk \;
-          ls -la app-release.apk
+          VERSION="${GITHUB_REF_NAME#v}"
+          mkdir -p dist
+          zip -r "dist/rainbow_cloud_server_v${VERSION}.zip" \
+            admin/ assets/ file/ games/ includes/ install/ nav/ \
+            ajax.php api.php config.php down.php file.php index.php \
+            login.php pdfview.php player.php upload.php user_center.php view.php \
+            favicon.ico .user.ini \
+            CHANGELOG.md LICENSE README.md \
+            -x "*.git*" "*.log" "install/install.lock" "assets/js/layer.js"
 
-      - name: Download Android AAB
-        uses: actions/download-artifact@v4
-        with:
-          name: rainbow_cloud_android_aab
-          path: android_aab_dir
-          merge-multiple: false
-
-      - name: Locate Android AAB
-        run: |
-          find android_aab_dir -name "*.aab" -type f -exec cp {} app-release.aab \;
-          ls -la app-release.aab
-
-      - name: Download Windows artifact
-        uses: actions/download-artifact@v4
-        continue-on-error: true
-        with:
-          name: rainbow_cloud_windows
-          path: windows_dir
-          merge-multiple: false
-
-      - name: Locate Windows distribution
-        run: |
-          find windows_dir -name "rainbow_cloud_windows.zip" -type f -exec cp {} rainbow_cloud_windows.zip \; 2>/dev/null || echo "Windows artifact not available"
-          ls -la rainbow_cloud_windows.zip 2>/dev/null || echo "No Windows zip"
-
-      - name: Download macOS DMG artifact
-        uses: actions/download-artifact@v4
-        continue-on-error: true
-        with:
-          name: rainbow_cloud_macos_dmg
-          path: macos_dmg_dir
-          merge-multiple: false
-
-      - name: Locate macOS DMG
-        run: |
-          find macos_dmg_dir -name "*.dmg" -type f -exec cp {} rainbow_cloud_arm64.dmg \; 2>/dev/null || echo "macOS DMG artifact not available"
-          ls -la rainbow_cloud_arm64.dmg 2>/dev/null || echo "No macOS DMG"
-
-      - name: Download macOS legacy zip artifact
-        uses: actions/download-artifact@v4
-        continue-on-error: true
-        with:
-          name: rainbow_cloud_macos
-          path: macos_dir
-          merge-multiple: false
-
-      - name: Locate macOS legacy zip
-        run: |
-          find macos_dir -name "rainbow_cloud_macos.zip" -type f -exec cp {} rainbow_cloud_macos.zip \; 2>/dev/null || echo "macOS legacy zip not available"
-          ls -la rainbow_cloud_macos.zip 2>/dev/null || echo "No macOS legacy zip"
-
-      - name: Generate version tag
-        id: version
-        run: |
-          DATETIME=$(TZ='Asia/Shanghai' date +'%Y%m%d-%H%M')
-          echo "tag=v${DATETIME}" >> $GITHUB_OUTPUT
-          echo "name=v${DATETIME}" >> $GITHUB_OUTPUT
-
-      - name: Create Release
+      - name: Create Server Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.version.outputs.tag }}
-          name: ${{ steps.version.outputs.name }}
+          tag_name: server-${{ github.ref_name }}
+          name: "Rainbow Cloud v${{ github.ref_name }} - Server"
+          body: |
+            ## 彩虹外链网盘 - PHP 服务端
+
+            版本：v${{ github.ref_name }}
+
+            ### 环境要求
+            - PHP >= 7.1
+            - MySQL >= 5.5
+
+            ### 安装方法
+            1. 解压上传至网站根目录
+            2. 访问网站，按照安装向导完成配置
+            3. 默认后台：admin / 123456
+
+            ### 更新日志
+            详见 [CHANGELOG.md](https://github.com/cheng806415/rainbow-cloud/blob/main/CHANGELOG.md)
           draft: false
           prerelease: false
-          generate_release_notes: true
+          files: dist/rainbow_cloud_server_v*.zip
+
+  # ==================== 发布：Android ====================
+
+  release-android:
+    name: Release Android
+    needs: [build-android]
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: android-apk
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: android-aab
+
+      - name: List artifacts
+        run: ls -la
+
+      - name: Create Android Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: android-${{ github.ref_name }}
+          name: "Rainbow Cloud v${{ github.ref_name }} - Android"
+          body: |
+            ## 彩虹外链网盘 - Android 客户端
+
+            版本：v${{ github.ref_name }}
+
+            ### 安装说明
+            - 下载 APK 文件安装到 Android 设备
+            - 首次启动需配置服务器地址
+            - 最低要求：Android 6.0 (API 23)
+
+            ### 文件说明
+            | 文件 | 用途 |
+            |------|------|
+            | APK | 直接安装包 |
+            | AAB | Google Play 上传包 |
+          draft: false
+          prerelease: false
           files: |
-            app-release.apk
-            app-release.aab
-            rainbow_cloud_windows.zip
-            rainbow_cloud_arm64.dmg
-            rainbow_cloud_macos.zip
+            rainbow_cloud_v*.apk
+            rainbow_cloud_v*.aab
+
+  # ==================== 发布：Windows ====================
+
+  release-windows:
+    name: Release Windows
+    needs: [build-windows]
+    if: startsWith(github.ref, 'refs/tags/') && !cancelled()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: windows-zip
+
+      - name: List artifacts
+        run: ls -la 2>/dev/null || echo "No Windows artifact"
+
+      - name: Create Windows Release
+        uses: softprops/action-gh-release@v2
+        continue-on-error: true
+        with:
+          tag_name: windows-${{ github.ref_name }}
+          name: "Rainbow Cloud v${{ github.ref_name }} - Windows"
+          body: |
+            ## 彩虹外链网盘 - Windows 客户端
+
+            版本：v${{ github.ref_name }}
+
+            ### 安装说明
+            1. 解压 zip 文件
+            2. 运行 `rainbow_cloud.exe`
+            3. 首次启动需配置服务器地址
+          draft: false
+          prerelease: false
+          files: rainbow_cloud_windows_v*.zip
+
+  # ==================== 发布：macOS ====================
+
+  release-macos:
+    name: Release macOS
+    needs: [build-macos]
+    if: startsWith(github.ref, 'refs/tags/') && !cancelled()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: macos-dmg
+
+      - name: List artifacts
+        run: ls -la 2>/dev/null || echo "No macOS artifact"
+
+      - name: Create macOS Release
+        uses: softprops/action-gh-release@v2
+        continue-on-error: true
+        with:
+          tag_name: macos-${{ github.ref_name }}
+          name: "Rainbow Cloud v${{ github.ref_name }} - macOS"
+          body: |
+            ## 彩虹外链网盘 - macOS 客户端
+
+            版本：v${{ github.ref_name }}
+
+            ### 系统要求
+            - macOS 12.0+
+            - Apple Silicon (M1/M2/M3/M4) 芯片
+
+            ### 安装说明
+            1. 打开 DMG 文件
+            2. 将 `rainbow_cloud.app` 拖入 Applications 文件夹
+            3. 首次启动需配置服务器地址
+            4. 如提示"无法验证开发者"，前往「系统设置 → 隐私与安全性」点击"仍要打开"
+          draft: false
+          prerelease: false
+          files: rainbow_cloud_macos_v*.dmg
