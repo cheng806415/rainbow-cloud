@@ -201,6 +201,48 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
               label: Text(_isLoginLoading ? '登录中...' : '登 录'),
             ),
           ),
+          const SizedBox(height: 12),
+          Consumer<AuthProvider>(
+            builder: (context, authProvider, child) {
+              return TextButton.icon(
+                onPressed: () => _showEditServerUrl(context, authProvider),
+                icon: const Icon(Icons.http, size: 16),
+                label: Text(
+                  '服务器: ${authProvider.serverUrl}',
+                  style: const TextStyle(fontSize: 12),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showEditServerUrl(BuildContext context, AuthProvider authProvider) {
+    final controller = TextEditingController(text: authProvider.serverUrl);
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('设置服务器地址'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            labelText: '服务器地址',
+            hintText: 'https://pan.example.com',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('取消')),
+          FilledButton(
+            onPressed: () async {
+              await authProvider.setServerUrl(controller.text.trim());
+              if (context.mounted) Navigator.pop(context);
+            },
+            child: const Text('保存'),
+          ),
         ],
       ),
     );
