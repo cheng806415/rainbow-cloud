@@ -28,8 +28,9 @@ class _OfficePreviewState extends State<OfficePreview> {
   }
 
   void _initWebView() {
-    final downloadUrl = ApiClient().getDownloadUrl(widget.file);
-    final encoded = Uri.encodeComponent(downloadUrl);
+    // 使用 view.php 而非 down.php，因为 Office Online Viewer 无法携带认证 Cookie
+    final viewUrl = ApiClient().getFileUrl(widget.file);
+    final encoded = Uri.encodeComponent(viewUrl);
     final viewerUrl = 'https://view.officeapps.live.com/op/view.aspx?src=$encoded';
     AppLogger().i('OfficePreview', 'loading $viewerUrl');
 
@@ -62,8 +63,8 @@ class _OfficePreviewState extends State<OfficePreview> {
   }
 
   Future<void> _openInBrowser() async {
-    final downloadUrl = ApiClient().getDownloadUrl(widget.file);
-    final encoded = Uri.encodeComponent(downloadUrl);
+    final viewUrl = ApiClient().getFileUrl(widget.file);
+    final encoded = Uri.encodeComponent(viewUrl);
     final viewerUrl = 'https://view.officeapps.live.com/op/view.aspx?src=$encoded';
     if (await canLaunchUrl(Uri.parse(viewerUrl))) {
       await launchUrl(Uri.parse(viewerUrl), mode: LaunchMode.externalApplication);
@@ -73,6 +74,20 @@ class _OfficePreviewState extends State<OfficePreview> {
         const SnackBar(content: Text('无法打开外部浏览器')),
       );
     }
+  }
+
+  void _enterFullscreen() {
+    final viewUrl = ApiClient().getFileUrl(widget.file);
+    final encoded = Uri.encodeComponent(viewUrl);
+    final viewerUrl = 'https://view.officeapps.live.com/op/view.aspx?src=$encoded';
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => _OfficeFullscreenPage(
+          viewerUrl: viewerUrl,
+          title: widget.file.name,
+        ),
+      ),
+    );
   }
 
   @override
