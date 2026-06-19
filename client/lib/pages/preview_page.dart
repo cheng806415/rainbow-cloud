@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/file_model.dart';
@@ -12,6 +13,7 @@ import '../widgets/preview/code_preview.dart';
 import '../widgets/preview/archive_preview.dart';
 import '../widgets/preview/file_info_sheet.dart';
 import '../widgets/preview/preview_bottom_bar.dart';
+import '../widgets/preview/webview_preview.dart';
 
 /// 统一预览入口
 /// - 单文件模式: PreviewPage(file: file)
@@ -35,6 +37,11 @@ class PreviewPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // macOS 不支持 photo_view，图片也走 WebView 预览
+    if (Platform.isMacOS && file.isImage) {
+      return _SingleFilePreview(file: file);
+    }
+
     // 画廊模式 (主要针对多张图片)
     if (files != null && files!.length > 1) {
       // 过滤出图片文件
@@ -131,6 +138,19 @@ class _SingleFilePreview extends StatelessWidget {
   }
 
   Widget _buildBody(PreviewType type) {
+    // macOS/Linux 不支持 flutter_pdfview、photo_view 等原生插件
+    // 统一回退到 WebView 预览
+    if (Platform.isMacOS || Platform.isLinux) {
+      switch (type) {
+        case PreviewType.pdf:
+        case PreviewType.office:
+        case PreviewType.image:
+          return WebViewPreview(file: file, title: file.name);
+        default:
+          break;
+      }
+    }
+
     switch (type) {
       case PreviewType.image:
         return const SizedBox.shrink(); // 已在外层处理
