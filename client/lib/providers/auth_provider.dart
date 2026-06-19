@@ -21,12 +21,16 @@ class AuthProvider extends ChangeNotifier {
   Map<String, dynamic> get userInfo => _apiClient.userInfo;
 
   Future<void> initServerUrl() async {
-    final savedUrl = await _storage.read(key: AppConstants.storageKeyServerUrl);
-    if (savedUrl != null && savedUrl.isNotEmpty) {
-      _serverUrl = savedUrl;
+    try {
+      final savedUrl = await _storage.read(key: AppConstants.storageKeyServerUrl);
+      if (savedUrl != null && savedUrl.isNotEmpty) {
+        _serverUrl = savedUrl;
+      }
       await _apiClient.init(_serverUrl);
-    } else {
-      await _apiClient.init(_serverUrl);
+    } catch (e) {
+      AppLogger().e('AuthProvider', 'initServerUrl error: $e');
+      // 即使初始化失败也使用默认地址，避免启动卡死
+      await _apiClient.init(AppConstants.defaultServerUrl);
     }
   }
 
