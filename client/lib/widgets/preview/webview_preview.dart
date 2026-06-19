@@ -45,9 +45,10 @@ class _WebViewPreviewState extends State<WebViewPreview> {
     }
 
     // Office 文档使用 Microsoft Office Online Viewer
+    // 使用 view.php 而非 down.php，因为 Office Online Viewer 无法携带认证 Cookie
     if (['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'rtf', 'odt', 'ods', 'odp'].contains(type)) {
-      final downloadUrl = ApiClient().getDownloadUrl(widget.file);
-      return 'https://view.officeapps.live.com/op/view.aspx?src=${Uri.encodeComponent(downloadUrl)}';
+      final viewUrl = ApiClient().getFileUrl(widget.file);
+      return 'https://view.officeapps.live.com/op/view.aspx?src=${Uri.encodeComponent(viewUrl)}';
     }
 
     // 图片使用服务器端 view.php
@@ -103,6 +104,17 @@ class _WebViewPreviewState extends State<WebViewPreview> {
     }
   }
 
+  void _enterFullscreen() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => _WebviewFullscreenPage(
+          url: _buildViewerUrl(),
+          title: widget.title ?? widget.file.name,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_error != null) {
@@ -148,7 +160,96 @@ class _WebViewPreviewState extends State<WebViewPreview> {
         WebViewWidget(controller: _controller),
         if (_isLoading)
           const Center(child: CircularProgressIndicator()),
+        // 全屏按钮
+        Positioned(
+          top: 8,
+          right: 8,
+          child: Material(
+            color: Colors.white70,
+            shape: const CircleBorder(),
+            child: IconButton(
+              icon: const Icon(Icons.fullscreen, size: 22),
+              tooltip: '全屏查看',
+              onPressed: _enterFullscreen,
+            ),
+          ),
+        ),
       ],
+    );
+  }
+}
+
+/// WebView 全屏查看页面
+class _WebviewFullscreenPage extends StatefulWidget {
+  final String url;
+  final String title;
+
+  const _WebviewFullscreenPage({
+    required this.url,
+    required this.title,
+  });
+
+  @override
+  State<_WebviewFullscreenPage> createState() => _WebviewFullscreenPageState();
+}
+
+class _WebviewFullscreenPageState extends State<_WebviewFullscreenPage> {
+  late final WebViewController _controller;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setUserAgent(
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 '
+        '(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      )
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onPageStarted: (url) {
+            if (mounted) setState(() => _isLoading = true);
+          },
+          onPageFinished: (url) {
+            if (mounted) setState(() => _isLoading = false);
+          },
+          onWebResourceError: (error) {
+            AppLogger().w('WebViewFullscreen', 'web error: ${error.description}');
+          },
+        ),
+      )
+      ..loadRequest(Uri.parse(widget.url));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black87,
+        foregroundColor: Colors.white,
+        title: Text(
+          widget.title,
+          style: const TextStyle(fontSize: 14),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.fullscreen_exit),
+            tooltip: '退出全屏',
+            onPressed: () => Navigator.pop(context),
+          ),
+        ],
+      ),
+      body: Stack(
+        children: [
+          WebViewWidget(controller: _controller),
+          if (_isLoading)
+            const Center(child: CircularProgressIndicator()),
+        ],
+      ),
     );
   }
 }
