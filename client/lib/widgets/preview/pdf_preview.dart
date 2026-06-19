@@ -10,6 +10,7 @@ import '../../utils/app_logger.dart';
 /// PDF 预览
 /// - 自动下载缓存 (避免重复下载)
 /// - 支持分页/缩放/跳转
+/// - 支持全屏查看
 class PdfPreview extends StatefulWidget {
   final FileModel file;
   const PdfPreview({super.key, required this.file});
@@ -76,6 +77,19 @@ class _PdfPreviewState extends State<PdfPreview> {
     }
   }
 
+  void _enterFullscreen() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => _PdfFullscreenPage(
+          filePath: _localPath!,
+          fileName: widget.file.name,
+          initialPage: _currentPage,
+          totalPages: _totalPages,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_error != null) {
@@ -135,6 +149,20 @@ class _PdfPreviewState extends State<PdfPreview> {
             });
           },
         ),
+        // 全屏按钮
+        Positioned(
+          top: 8,
+          right: 8,
+          child: Material(
+            color: Colors.white70,
+            shape: const CircleBorder(),
+            child: IconButton(
+              icon: const Icon(Icons.fullscreen, size: 22),
+              tooltip: '全屏查看',
+              onPressed: _enterFullscreen,
+            ),
+          ),
+        ),
         if (_totalPages > 0)
           Positioned(
             bottom: 16,
@@ -155,6 +183,87 @@ class _PdfPreviewState extends State<PdfPreview> {
             ),
           ),
       ],
+    );
+  }
+}
+
+/// PDF 全屏查看页面
+class _PdfFullscreenPage extends StatefulWidget {
+  final String filePath;
+  final String fileName;
+  final int initialPage;
+  final int totalPages;
+
+  const _PdfFullscreenPage({
+    required this.filePath,
+    required this.fileName,
+    required this.initialPage,
+    required this.totalPages,
+  });
+
+  @override
+  State<_PdfFullscreenPage> createState() => _PdfFullscreenPageState();
+}
+
+class _PdfFullscreenPageState extends State<_PdfFullscreenPage> {
+  late int _currentPage;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentPage = widget.initialPage;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black87,
+        foregroundColor: Colors.white,
+        title: Text(
+          widget.fileName,
+          style: const TextStyle(fontSize: 14),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.fullscreen_exit),
+            tooltip: '退出全屏',
+            onPressed: () => Navigator.pop(context),
+          ),
+        ],
+      ),
+      body: PDFView(
+        filePath: widget.filePath,
+        enableSwipe: true,
+        swipeHorizontal: false,
+        autoSpacing: true,
+        pageFling: true,
+        pageSnap: true,
+        fitPolicy: FitPolicy.BOTH,
+        preventLinkNavigation: false,
+        defaultPage: widget.initialPage - 1,
+        onRender: (pages) {
+          if (!mounted) return;
+          setState(() {});
+        },
+        onPageChanged: (page, total) {
+          if (!mounted) return;
+          setState(() => _currentPage = (page ?? 0) + 1);
+        },
+      ),
+      bottomNavigationBar: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: const BoxDecoration(color: Colors.black87),
+        child: Center(
+          child: Text(
+            '$_currentPage / ${widget.totalPages}',
+            style: const TextStyle(color: Colors.white, fontSize: 13),
+          ),
+        ),
+      ),
     );
   }
 }
