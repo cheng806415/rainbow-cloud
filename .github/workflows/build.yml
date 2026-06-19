@@ -169,6 +169,50 @@ jobs:
           name: macos-dmg
           path: rainbow_cloud_macos_v*.dmg
 
+  build-linux:
+    name: Build Linux
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.0'
+          channel: 'stable'
+          cache: true
+
+      - name: Enable Linux desktop
+        run: |
+          flutter config --enable-linux-desktop
+          flutter create --platforms=linux .
+        working-directory: client
+
+      - name: Get dependencies
+        run: flutter pub get
+        working-directory: client
+
+      - name: Build Linux
+        run: flutter build linux --release
+        working-directory: client
+
+      - name: Package Linux
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          cd client/build/linux/x64/release/bundle
+          tar czf "$GITHUB_WORKSPACE/rainbow_cloud_linux_v${VERSION}.tar.gz" .
+
+      - name: Upload Linux artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-tar
+          path: rainbow_cloud_linux_v*.tar.gz
+
   # ==================== 发布：服务端 ====================
 
   release-server:
@@ -186,7 +230,7 @@ jobs:
           VERSION="${GITHUB_REF_NAME#v}"
           mkdir -p dist
           zip -r "dist/rainbow_cloud_server_v${VERSION}.zip" \
-            admin/ assets/ file/ games/ includes/ install/ nav/ \
+            admin/ assets/ file/ includes/ install/ \
             ajax.php api.php config.php down.php file.php index.php \
             login.php pdfview.php player.php upload.php user_center.php view.php \
             favicon.ico .user.ini \
@@ -343,3 +387,44 @@ jobs:
           draft: false
           prerelease: false
           files: rainbow_cloud_macos_v*.dmg
+
+  # ==================== 发布：Linux ====================
+
+  release-linux:
+    name: Release Linux
+    needs: [build-linux]
+    if: startsWith(github.ref, 'refs/tags/') && !cancelled()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: linux-tar
+
+      - name: List artifacts
+        run: ls -la 2>/dev/null || echo "No Linux artifact"
+
+      - name: Create Linux Release
+        uses: softprops/action-gh-release@v2
+        continue-on-error: true
+        with:
+          tag_name: linux-${{ github.ref_name }}
+          name: "Rainbow Cloud ${{ github.ref_name }} - Linux"
+          body: |
+            ## 彩虹外链网盘 - Linux 客户端
+
+            版本：v${{ github.ref_name }}
+
+            ### 系统要求
+            - 64 位 Linux 桌面环境
+            - GTK 3
+
+            ### 安装说明
+            1. 解压 tar.gz 文件
+            2. 运行 `rainbow_cloud`
+            3. 首次启动需配置服务器地址
+          draft: false
+          prerelease: false
+          files: rainbow_cloud_linux_v*.tar.gz
