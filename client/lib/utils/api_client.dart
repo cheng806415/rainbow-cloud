@@ -44,25 +44,13 @@ class ApiClient {
 
     // 仅在首次初始化时创建持久化 Cookie 容器
     // 后续重连使用同一份 CookieJar，从而保证用户登录态
-    _cookieJar ??= await AuthStorage.createCookieJar();
+    try {
+      _cookieJar ??= await AuthStorage.createCookieJar();
+    } catch (e) {
+      AppLogger().e('ApiClient', 'createCookieJar failed: $e');
+    }
 
-    final uri = Uri.parse(_baseUrl);
-
-    _dio = Dio(BaseOptions(
-      baseUrl: _baseUrl,
-      connectTimeout: const Duration(seconds: AppConstants.requestTimeout),
-      receiveTimeout: const Duration(seconds: AppConstants.requestTimeout),
-      sendTimeout: const Duration(seconds: 120),
-      headers: {
-        'Accept': 'application/json',
-        'Referer': _baseUrl + '/',
-        'Origin': '${uri.scheme}://${uri.host}',
-      },
-      validateStatus: (status) => true,
-      responseType: ResponseType.plain,
-    ));
-
-    _dio.interceptors.add(CookieManager(_cookieJar!));
+    _createDio();
     _initialized = true;
     AppLogger().i('ApiClient', 'init ok, baseUrl=$_baseUrl');
   }
@@ -168,8 +156,9 @@ class ApiClient {
       }
       return {'success': false, 'message': data['msg'] ?? '登录失败'};
     } catch (e) {
+      final errMsg = _formatNetworkError(e, 'login');
       AppLogger().e('ApiClient', 'login error: $e');
-      return {'success': false, 'message': '网络错误，请检查服务器地址或网络连接'};
+      return {'success': false, 'message': errMsg};
     }
   }
 
@@ -191,8 +180,9 @@ class ApiClient {
       }
       return {'success': false, 'message': data['msg'] ?? '注册失败'};
     } catch (e) {
-      print('Register error: $e');
-      return {'success': false, 'message': '网络错误，请检查服务器地址或网络连接'};
+      final errMsg = _formatNetworkError(e, 'register');
+      AppLogger().e('ApiClient', 'register error: $e');
+      return {'success': false, 'message': errMsg};
     }
   }
 
@@ -250,11 +240,23 @@ class ApiClient {
     // 清理本地会话：内存 + secure storage + 持久化 cookie 文件
     await _clearLocalSession();
     // 重新生成一个全新的 Dio 实例（不复用旧的 _dio，因为它持有旧的 CookieManager）
+    _createDio();
+  }
+
+  void _createDio() {
+    final uri = Uri.parse(_baseUrl);
     _dio = Dio(BaseOptions(
       baseUrl: _baseUrl,
       connectTimeout: const Duration(seconds: AppConstants.requestTimeout),
       receiveTimeout: const Duration(seconds: AppConstants.requestTimeout),
+      sendTimeout: const Duration(seconds: 120),
+      headers: {
+        'Accept': 'application/json',
+        'Referer': _baseUrl + '/',
+        'Origin': '${uri.scheme}://${uri.host}',
+      },
       validateStatus: (status) => true,
+      responseType: ResponseType.plain,
     ));
     if (_cookieJar != null) {
       _dio.interceptors.add(CookieManager(_cookieJar!));
@@ -535,5 +537,31 @@ class ApiClient {
     if (value is double) return value.toInt();
     if (value is String) return int.tryParse(value) ?? 0;
     return 0;
+  }
+
+  /// 把 Dio 异常转换成用户可读的提示，便于定位问题
+  String _formatNetworkError(dynamic e, String action) {
+    if (e is DioException) {
+      switch (e.type) {
+        case DioExceptionType.connectionTimeout:
+        case DioExceptionType.sendTimeout:
+        case DioExceptionType.receiveTimeout:
+          return '连接超时，请检查网络或服务器地址';
+        case DioExceptionType.connectionError:
+          return '无法连接到服务器 ($_baseUrl)，请检查地址是否正确';
+        case DioExceptionType.badCertificate:
+          return '服务器证书校验失败，请检查系统时间或网络环境';
+        case DioExceptionType.badResponse:
+          return '服务器返回异常 (${e.response?.statusCode})';
+        case DioExceptionType.cancel:
+          return '请求已取消';
+        case DioExceptionType.unknown:
+          if (e.message != null && e.message!.contains('Certificate')) {
+            return '服务器证书校验失败：${e.message}';
+          }
+          return '网络错误：${e.message}';
+      }
+    }
+    return '网络错误，请检查服务器地址或网络连接 (${e.runtimeType})';
   }
 }
