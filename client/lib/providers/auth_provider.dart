@@ -20,16 +20,28 @@ class AuthProvider extends ChangeNotifier {
   int get userId => _apiClient.userId;
   Map<String, dynamic> get userInfo => _apiClient.userInfo;
 
+  /// 旧服务器地址列表（迁移时自动替换为新默认地址）
+  static const _deprecatedUrls = {
+    'https://blzg.xianxinhn.xyz',
+    'https://blzg.xianxinhn.xyz/',
+  };
+
   Future<void> initServerUrl() async {
     try {
       final savedUrl = await _storage.read(key: AppConstants.storageKeyServerUrl);
       if (savedUrl != null && savedUrl.isNotEmpty) {
-        _serverUrl = savedUrl;
+        // 如果缓存的是旧地址，自动迁移到新的默认地址
+        if (_deprecatedUrls.contains(savedUrl)) {
+          AppLogger().i('AuthProvider', 'migrating deprecated url $savedUrl -> ${AppConstants.defaultServerUrl}');
+          _serverUrl = AppConstants.defaultServerUrl;
+          await _storage.write(key: AppConstants.storageKeyServerUrl, value: _serverUrl);
+        } else {
+          _serverUrl = savedUrl;
+        }
       }
       await _apiClient.init(_serverUrl);
     } catch (e) {
       AppLogger().e('AuthProvider', 'initServerUrl error: $e');
-      // 即使初始化失败也使用默认地址，避免启动卡死
       await _apiClient.init(AppConstants.defaultServerUrl);
     }
   }
