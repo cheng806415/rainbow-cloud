@@ -1,5 +1,5 @@
 class AppConstants {
-  static const String defaultServerUrl = 'https://blzg.xianxinhn.xyz';
+  static const String defaultServerUrl = 'https://blzg.czyroo.cn/';
   static const String storageKeyServerUrl = 'server_url';
   static const String storageKeyAuthToken = 'auth_token';
   static const String storageKeyUserId = 'user_id';
