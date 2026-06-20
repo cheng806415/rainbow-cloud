@@ -20,6 +20,7 @@ class UploadTask {
   String message = '等待中';
   String? hash;
   int? serverFileId;
+  int? speedBytesPerSec; // 实时上传速度 (bytes/s)
 
   UploadTask({
     required this.id,
@@ -152,11 +153,14 @@ class UploadProvider extends ChangeNotifier {
       _safeNotify();
 
       // 2) 分片上传
+      int? lastSpeedTime;
+      int lastUploadedSize = 0;
       for (int i = 0; i < chunks; i++) {
         if (cancelToken.isCancelled) return;
         final start = i * chunkSize;
         final end = (i == chunks - 1) ? bytes.length : (start + chunkSize);
         final partBytes = bytes.sublist(start, end);
+        final partLength = partBytes.length;
 
         final partData = FormData.fromMap({
           'file': MultipartFile.fromBytes(partBytes, filename: '${hash}.part${i + 1}'),
@@ -170,8 +174,30 @@ class UploadProvider extends ChangeNotifier {
           data: partData,
           cancelToken: cancelToken,
           onSendProgress: (sent, total) {
-            task.uploadedSize = start + sent;
-            task.progress = (start + sent) / task.totalSize;
+            // onSendProgress 报告的是 HTTP 请求体字节数（含 multipart 开销）
+            // 用比例换算为实际文件字节数，避免进度跳变
+            final ratio = total > 0 ? sent / total : 0.0;
+            final fileBytesSent = (partLength * ratio).toInt();
+            final currentUploaded = start + fileBytesSent;
+            task.uploadedSize = currentUploaded;
+            task.progress = currentUploaded / task.totalSize;
+            if (task.progress > 1.0) task.progress = 1.0;
+
+            // 计算上传速度
+            final now = DateTime.now().millisecondsSinceEpoch;
+            if (lastSpeedTime != null && now - lastSpeedTime >= 500) {
+              final deltaSize = currentUploaded - lastUploadedSize;
+              final deltaTime = (now - lastSpeedTime) / 1000;
+              if (deltaTime > 0) {
+                task.speedBytesPerSec = (deltaSize / deltaTime).round();
+              }
+              lastSpeedTime = now;
+              lastUploadedSize = currentUploaded;
+            } else if (lastSpeedTime == null) {
+              lastSpeedTime = now;
+              lastUploadedSize = currentUploaded;
+            }
+
             task.message = '上传分片 ${i + 1}/$chunks';
             _safeNotify();
           },
