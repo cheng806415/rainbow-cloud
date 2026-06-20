@@ -76,7 +76,10 @@ class UploadPage extends StatelessWidget {
                         subtitle: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('${AppUtils.formatBytes(task.totalSize)} · ${task.message}'),
+                            Text(
+                              '${AppUtils.formatBytes(task.totalSize)} · ${task.message}'
+                              '${task.speedBytesPerSec != null ? ' · ${AppUtils.formatBytes(task.speedBytesPerSec!)}/s' : ''}',
+                            ),
                             if (task.status == UploadStatus.uploading || task.status == UploadStatus.checking)
                               Padding(
                                 padding: const EdgeInsets.only(top: 4),
