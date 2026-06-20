@@ -152,3 +152,78 @@ class _OfficePreviewState extends State<OfficePreview> {
     );
   }
 }
+
+/// Office 文档全屏查看页面
+class _OfficeFullscreenPage extends StatefulWidget {
+  final String viewerUrl;
+  final String title;
+
+  const _OfficeFullscreenPage({
+    required this.viewerUrl,
+    required this.title,
+  });
+
+  @override
+  State<_OfficeFullscreenPage> createState() => _OfficeFullscreenPageState();
+}
+
+class _OfficeFullscreenPageState extends State<_OfficeFullscreenPage> {
+  late final WebViewController _controller;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setUserAgent(
+        'Mozilla/5.0 (Linux; Android 10; SM-G973F) AppleWebKit/537.36 '
+        '(KHTML, like Gecko) Chrome/91.0.4472.120 Mobile Safari/537.36',
+      )
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onPageStarted: (url) {
+            if (mounted) setState(() => _isLoading = true);
+          },
+          onPageFinished: (url) {
+            if (mounted) setState(() => _isLoading = false);
+          },
+          onWebResourceError: (error) {
+            AppLogger().w('OfficeFullscreen', 'web error: ${error.description}');
+          },
+        ),
+      )
+      ..loadRequest(Uri.parse(widget.viewerUrl));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black87,
+        foregroundColor: Colors.white,
+        title: Text(
+          widget.title,
+          style: const TextStyle(fontSize: 14),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.fullscreen_exit),
+            tooltip: '退出全屏',
+            onPressed: () => Navigator.pop(context),
+          ),
+        ],
+      ),
+      body: Stack(
+        children: [
+          WebViewWidget(controller: _controller),
+          if (_isLoading)
+            const Center(child: CircularProgressIndicator()),
+        ],
+      ),
+    );
+  }
+}
